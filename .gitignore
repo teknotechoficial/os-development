@@ -1,0 +1,159 @@
+# Build outputs
+build/
+*.o
+*.elf
+*.bin
+*.iso
+*.img
+*.map
+*.sym
+*.dis
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel debug
+vmlinux
+vmlinux.bin
+
+# QEMU
+*.qcow2
+*.raw
+*.vmdk
+
+# GDB
+.gdb_history
+gdb.txt
+
+# Make
+*.d
+*.tmp
+*.tmp.*
+*.log
+.cache/
+compile_commands.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+tags
+TAGS
+cscope.*
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Windows specific
+*.lnk
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.bat
+*.cmd
+*.com
+*.cpl
+*.hta
+*.ins
+*.isp
+*.jse
+*.lnk
+*.msc
+*.msp
+*.pif
+*.reg
+*.scr
+*.sct
+*.shb
+*.shs
+*.vbe
+*.vbs
+*.vbsa
+*.wsc
+*.wsf
+*.wsh
+
+# Linux specific
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.secret
+*.token
+*.password
+*.credentials
+*.api_key
+*.apikey
+*.access_key
+*.secret_key
+
+# Doxygen
+docs/doxygen/
+html/
+latex/
+
+# Cross-compilation toolchain (don't commit toolchain itself)
+toolchain/
+
+# Test outputs
+tests/output/
+tests/build/
+*.test
+*.test.bin
+*.test.log

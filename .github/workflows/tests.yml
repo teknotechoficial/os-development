@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc \
+            nasm \
+            make \
+            binutils \
+            qemu-system-x86
+
+      - name: Build kernel
+        run: make all
+
+      - name: Run tests
+        run: make test
+        continue-on-error: true
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "Test execution completed"
+          echo "Note: Test framework is not yet implemented"
+          echo "Tests will be available in future versions"

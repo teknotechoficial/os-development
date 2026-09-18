@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Build Kernel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc \
+            nasm \
+            make \
+            binutils
+
+      - name: Verify toolchain
+        run: |
+          gcc --version
+          nasm --version
+          ld --version
+          make --version
+
+      - name: Build kernel
+        run: make all
+
+      - name: Verify build output
+        run: |
+          if [ ! -f build/kernel.elf ]; then
+            echo "Error: kernel.elf not found"
+            exit 1
+          fi
+          echo "Build successful"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build
+          path: build/
+          retention-days: 7
