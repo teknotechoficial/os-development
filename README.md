@@ -4,10 +4,10 @@ Proyecto de desarrollo de un sistema operativo funcional para arquitectura x86_6
 
 ## Estado Actual
 
-**Fase:** Infraestructura de desarrollo  
-**Estado:** Repositorio inicializado, listo para desarrollo
+**Fase:** Phase 0 — Preparación del proyecto y toolchain  
+**Estado:** Repositorio preparado, implementación del OS pendiente
 
-Este proyecto se encuentra en su fase inicial de preparación. El sistema operativo aún no tiene funcionalidad implementada.
+Este proyecto se encuentra en la fase de preparación. El repositorio tiene la estructura base, documentación arquitectónica y configuración de agentes lista. **El sistema operativo aún no tiene funcionalidad implementada.** Los archivos `boot/boot.asm` y `kernel/main.c` son prototipos mínimos para verificación del build system.
 
 ## Objetivo
 
@@ -37,19 +37,34 @@ Desarrollar un sistema operativo funcional desde cero que incluya:
 | Build system | Make |
 | Control de versiones | Git |
 
-La arquitectura está diseñada para ser evolutiva y no requiere reescrituras mayores para incorporar nuevas funcionalidades.
+La arquitectura está diseñada para ser evolutiva y no requiere reescrituras mayores para incorporar nuevas funcionalidades. Ver `.ai/architecture/system.md` para decisiones arquitectónicas detalladas (ADRs).
 
 ## Equipo de Agentes de IA
 
-Este proyecto es desarrollado por tres agentes de IA especializados:
+Este proyecto es desarrollado por dos agentes de IA especializados:
 
 | Agente | Rol | Responsabilidades |
 |--------|-----|-------------------|
-| **Claude Code** | Arquitecto principal | Arquitectura, kernel, integración |
-| **Codex CLI** | Auditor y QA | Code review, testing, seguridad |
-| **OpenCode** | Desarrollador especializado | Drivers, herramientas, tests |
+| **Claude Code** | Lead Developer + Software Architect | Arquitectura, kernel, integración, decisiones técnicas |
+| **OpenCode** | Supporting Developer + Specialized Engineer | Drivers, herramientas, tests, documentación, prototipos |
 
-Cada agente tiene instrucciones específicas en archivos dedicados (CLAUDE.md, CODEX.md, OPENCODE.md).
+Cada agente tiene instrucciones específicas en archivos dedicados (`CLAUDE.md`, `OPENCODE.md`). Las reglas globales están en `AGENTS.md`.
+
+## Roadmap
+
+El desarrollo sigue un roadmap incremental de 8 fases:
+
+- **Phase 0:** Preparación (completada)
+- **Phase 1:** Boot y kernel inicial
+- **Phase 2:** Kernel básico (interrupciones, timer, teclado, consola)
+- **Phase 3:** Memoria (física, virtual, heap)
+- **Phase 4:** Procesos (threads, scheduler, syscalls)
+- **Phase 5:** Almacenamiento (drivers, VFS, filesystem)
+- **Phase 6:** Userspace (libc, init, shell)
+- **Phase 7:** GUI (framebuffer, compositor, desktop)
+- **Phase 8:** Sistema avanzado (networking, USB, audio)
+
+Ver `.ai/tasks/roadmap.md` para detalles completos.
 
 ## Requisitos Previos
 
@@ -127,11 +142,9 @@ gdb
 ```bash
 # Ejecutar todos los tests
 make test
-
-# Ejecutar tests específicos
-make test BOOT    # Tests de boot
-make test KERNEL  # Tests de kernel
 ```
+
+> **Nota:** El framework de testing aún no está implementado. Los tests estarán disponibles en futuras versiones.
 
 ## Estructura del Repositorio
 
@@ -139,20 +152,18 @@ make test KERNEL  # Tests de kernel
 /
 ├── .github/          # CI/CD workflows y templates
 ├── .ai/              # Coordinación entre agentes
-│   ├── architecture/ # Documentación arquitectónica
-│   ├── tasks/        # Gestión de tareas
-│   ├── reviews/      # Revisiones de código
+│   ├── architecture/ # Documentación arquitectónica (ADRs)
+│   ├── tasks/        # Gestión de tareas y roadmap
 │   └── state.md      # Estado actual del proyecto
-├── boot/             # Bootloader
-├── kernel/           # Kernel
-├── tests/            # Tests automatizados
-├── tools/            # Herramientas de desarrollo
-├── docs/             # Documentación
+├── boot/             # Bootloader (prototipo actual)
+├── kernel/           # Kernel (prototipo actual)
+├── tests/            # Tests automatizados (pendiente)
+├── tools/            # Herramientas de desarrollo (pendiente)
+├── docs/             # Documentación (pendiente)
 ├── Makefile          # Build system
 ├── linker.ld         # Linker script
 ├── AGENTS.md         # Reglas globales para agentes
 ├── CLAUDE.md         # Instrucciones para Claude Code
-├── CODEX.md          # Instrucciones para Codex CLI
 └── OPENCODE.md       # Instrucciones para OpenCode
 ```
 
@@ -160,16 +171,26 @@ make test KERNEL  # Tests de kernel
 
 1. Leer `AGENTS.md` para entender las reglas del proyecto
 2. Revisar `.ai/state.md` para entender el estado actual
-3. Revisar `.ai/tasks/backlog.md` para tareas disponibles
-4. Crear branch para tu funcionalidad
-5. Implementar cambios de forma incremental
-6. Ejecutar tests antes de commitear
-7. Crear Pull Request con descripción clara
+3. Revisar `.ai/tasks/roadmap.md` para el roadmap del proyecto
+4. Revisar `.ai/tasks/backlog.md` para tareas disponibles
+5. Crear branch para tu funcionalidad (`feature/nombre`, `fix/nombre`)
+6. Implementar cambios de forma incremental
+7. Ejecutar tests antes de commitear
+8. Crear Pull Request con descripción clara
+
+## Reportar Problemas
+
+Usar los templates de GitHub Issues:
+- **Bug Report** — Para errores en el sistema
+- **Kernel Issue** — Para problemas específicos del kernel
+- **Driver Issue** — Para problemas con drivers
+- **Feature Request** — Para sugerir nuevas funcionalidades
+- **Architecture Decision** — Para proponer decisiones arquitectónicas
 
 ## Licencia
 
- TBD (a decidir)
+TBD (a decidir)
 
 ## Contacto
 
- TBD
+TBD

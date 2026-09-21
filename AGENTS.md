@@ -19,6 +19,19 @@ Sistema operativo funcional desarrollado desde cero por un equipo de agentes de 
 - **Control de versiones:** Git
 - **Testing:** tests automatizados + pruebas de arranque en QEMU
 
+## Equipo de Agentes
+
+| Agente | Rol | Archivo |
+|--------|-----|---------|
+| **Claude Code** | Lead Developer + Software Architect | `CLAUDE.md` |
+| **OpenCode** | Supporting Developer + Specialized Engineer | `OPENCODE.md` |
+
+### Claude Code (Lead Developer)
+Responsable de la arquitectura general del OS, decisiones técnicas fundamentales, bootloader, kernel, memoria, paginación, interrupciones, procesos, threads, scheduler, syscalls, user mode, filesystem, e integración general.
+
+### OpenCode (Supporting Developer)
+Responsable de drivers, herramientas, tests, filesystem (cuando corresponda), userspace, utilidades, documentación, prototipos, componentes independientes, y tareas específicas asignadas por el proyecto.
+
 ## Convenciones de Código
 
 ### C
@@ -54,6 +67,7 @@ Sistema operativo funcional desarrollado desde cero por un equipo de agentes de 
 - No commitear secretos, credenciales, API keys, tokens
 - Branches por funcionalidad: `feature/nombre`, `fix/nombre`, `refactor/nombre`
 - Revisión de código obligatoria antes de merge a main
+- NO hacer `git reset --hard`, `git clean -fd` u operaciones equivalentes sin autorización explícita
 
 ## Reglas de Testing
 
@@ -90,6 +104,7 @@ Sistema operativo funcional desarrollado desde cero por un equipo de agentes de 
 ## Reglas de Calidad
 
 - **PROHIBIDO** declarar funcionalidades terminadas sin probarlas
+- **PROHIBIDO** crear implementaciones falsas o placeholders que parezcan funcionalidades reales
 - **OBLIGATORIO** verificar cambios en QEMU cuando corresponda
 - **OBLIGATORIO** preservar compatibilidad con x86_64
 - **OBLIGATORIO** revisar código existente antes de modificarlo
@@ -98,11 +113,26 @@ Sistema operativo funcional desarrollado desde cero por un equipo de agentes de 
 
 ## Coordinación entre Agentes
 
-- Cada agente debe respetar su rol definido (ver CLAUDE.md, CODEX.md, OPENCODE.md)
+- Cada agente debe respetar su rol definido (ver `CLAUDE.md` y `OPENCODE.md`)
 - No duplicar trabajo de otros agentes
 - Comunicar cambios que afecten componentes de otros agentes
 - Respetar el backlog y las tareas asignadas
 - Revisar `.ai/state.md` antes de comenzar trabajo
+
+## Antes de Modificar Código
+
+1. Inspeccionar el código existente
+2. Leer la documentación arquitectónica relevante
+3. Comprobar dependencias
+4. Entender cómo se integra el componente
+
+## Después de Modificar Código
+
+1. Compilar
+2. Ejecutar las pruebas disponibles
+3. Ejecutar QEMU cuando corresponda
+4. Comprobar que no se rompieron componentes existentes
+5. Documentar cambios relevantes
 
 ## Estructura del Proyecto
 
@@ -119,6 +149,5 @@ Sistema operativo funcional desarrollado desde cero por un equipo de agentes de 
 ├── linker.ld         # Linker script
 ├── AGENTS.md         # Este archivo
 ├── CLAUDE.md         # Instrucciones para Claude Code
-├── CODEX.md          # Instrucciones para Codex CLI
 └── OPENCODE.md       # Instrucciones para OpenCode
 ```

@@ -1,74 +1,69 @@
-# Estado del Proyecto
+# Project State
 
-Última actualización: $(date)
+## Status
 
-## Estado de Componentes
+Repository preparation completed.
 
-### Boot
-[ ] No iniciado
-> El bootloader aún no ha sido implementado. Se utilizará GRUB2, Limine o UEFI directo (a decidir).
+## OS Implementation
 
-### Kernel
-[ ] No iniciado
-> El kernel no tiene implementación. Se desarrollará un kernel monolítico modular.
+Not started.
 
-### Memory Management
-[ ] No iniciado
-> Gestión de memoria física y virtual no implementada.
+## Target Architecture
 
-### Interrupts
-[ ] No iniciado
-> Sistema de interrupciones (IDT, ISR, IRQ) no implementado.
+- x86_64
+- Monolithic modular kernel
+- C + Assembly
 
-### Processes
-[ ] No iniciado
-> Gestión de procesos no implementada.
+## Current Phase
 
-### Scheduler
-[ ] No iniciado
-> Planificador de procesos no implementado.
+**Phase 0 — Project and toolchain preparation.**
 
-### Syscalls
-[ ] No iniciado
-> Llamadas al sistema no implementadas.
+## Next Phase
 
-### Drivers
-[ ] No iniciado
-> Drivers de dispositivos no implementados.
+**Phase 1 — Boot and initial kernel.**
 
-### Filesystem
-[ ] No iniciado
-> Sistema de archivos no implementado.
+## Current Objective
 
-### Userspace
-[ ] No iniciado
-> Espacio de usuario no implementado.
+Prepare the repository and development workflow before implementing the first bootable kernel.
 
-### Networking
-[ ] No iniciado
-> Stack de red no implementado.
+## Important Notes
 
-### GUI
-[ ] No iniciado
-> Interfaz gráfica no implementada.
+- The repository structure is not proof that an OS subsystem exists.
+- Only implemented and tested functionality should be considered complete.
+- The files `boot/boot.asm` and `kernel/main.c` are **prototypes** for build system verification only. They do NOT implement real functionality.
 
-### Testing
-[ ] No iniciado
-> Framework de testing no implementado.
+## Component Status
 
-### Toolchain
-[~] En desarrollo
-> Makefile base creado. Toolchain configurada para x86_64.
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Repository structure | Completed | Directory layout created |
+| Toolchain (Makefile) | Completed | Base Makefile for x86_64 |
+| Linker script | Completed | Base linker.ld |
+| Agent configuration | Completed | CLAUDE.md, OPENCODE.md, AGENTS.md |
+| CI/CD (GitHub Actions) | Completed | build.yml, tests.yml |
+| GitHub templates | Completed | Issue templates, PR template |
+| Architecture docs | Completed | .ai/architecture/system.md with ADRs |
+| Bootloader | Not started | ADR-004 pending (GRUB2 vs Limine vs UEFI) |
+| Kernel | Not started | |
+| Memory management | Not started | |
+| Interrupts | Not started | |
+| Processes | Not started | |
+| Drivers | Not started | |
+| Filesystem | Not started | |
+| Userspace | Not started | |
+| Testing framework | Not started | |
 
-## Últimos Cambios
+## Recent Changes
 
-- Repositorio inicializado con estructura base
-- Archivos de configuración para agentes creados
-- Makefile y linker script base creados
+- Repository initialized with base structure
+- Agent configuration files created (CLAUDE.md, OPENCODE.md, AGENTS.md)
+- Makefile and linker script base created
+- Architecture documentation with 7 ADRs created
+- GitHub workflows and issue templates configured
 
-## Próximos Pasos
+## Next Steps
 
-1. Decidir bootloader (GRUB2, Limine, UEFI)
-2. Implementar bootstrap mínimo para verificar toolchain
-3. Desarrollar GDT e IDT básicos
-4. Implementar kernel mínimo funcional
+1. Decide bootloader (GRUB2, Limine, or UEFI) — ADR-004
+2. Implement bootstrap minimum to verify toolchain
+3. Develop basic GDT and IDT
+4. Implement minimal functional kernel (hello world in QEMU)
