@@ -151,3 +151,76 @@
 4. Limpiar logs temporales (`server-test.log`, `electron-test.log`, `exe-build.log`)
 
 **Resultado**: Agenda archivada; proyecto listo para retomar
+
+---
+
+### [2026-09-25 11:05:00] - 🔧 Error: Pantalla en blanco persistía — causa raíz identificada
+
+**Qué pasó**: La captura pendiente (`nova-screen5.png`) confirmó que la app seguía en blanco pese al fix `base: './'` + `loadFile`.
+
+**Contexto**: Diagnóstico con Electron remote debugging (`--remote-debugging-port=9222` + CDP vía WebSocket nativo de Node 24).
+
+**Detalles técnicos**: La app NO crasheaba — React montaba (warnings de React Router visibles en consola), 0 excepciones, API health OK. El problema: `BrowserRouter` bajo `file://` usa HTML5 history → el pathname real es `/C:/Users/.../index.html` → no matchea ninguna ruta → cae en `path="*"` → `<Navigate to="/" />` → `pushState('/')` canoniza a `file:///C:/` (raíz del disco) → vuelve a matchear `*` → bucle que renderiza **NULL** → raíz vacía → ventana blanca.
+
+**Resultado**: Causa raíz confirmada con trazas `Page.navigatedWithinDocument` a `file:///C:/`
+
+---
+
+### [2026-09-25 11:29:00] - 🔧 Solución: HashRouter + navegación post-login
+
+**Qué pasó**: Se aplicaron los 2 fixes definitivos de UI.
+
+**Detalles técnicos**:
+1. `App.tsx`: `BrowserRouter` → `HashRouter` (rutas en `#/`, único patrón compatible con `file://`; funciona igual en dev vite)
+2. `Login.tsx`: faltaba navegación tras login exitoso — agregado `useNavigate` + `navigate('/dashboard')` (antes el formulario quedaba pegado pese a login OK)
+3. Nota: `src/renderer/router.tsx` está sin uso (duplicado muerto de las rutas)
+
+**Build**: vite (`main-PhhFv71U.js`) + `tsc -p tsconfig.main.json` OK; `electron-builder --win dir` (ojo: falla con "Acceso denegado" si la app está corriendo desde `win-unpacked` — matar procesos y esperar ~4s)
+
+**Resultado**: Verificado por CDP: URL correcta en asar, rootLen=811 (login) → login CEO001 → `#/dashboard` rootLen=1247 "Hola, Sebastian"
+
+---
+
+### [2026-09-25 11:40:00] - 📊 Tarea: Diagnóstico de "falso blanco" — ventana minimizada
+
+**Qué pasó**: El DOM mostraba la UI correcta pero las capturas salían en blanco y `Page.captureScreenshot` colgaba.
+
+**Detalles técnicos**: `document.visibilityState = "hidden"` → Chromium pausa el rasterizado de páginas ocultas. Causa: la ventana estaba **minimizada** (las apps lanzadas vía WMI/cmd desconectado arrancan minimizadas en este entorno). Solución de diagnóstico: `user32.dll ShowWindow(hwnd, SW_RESTORE)` + `SetForegroundWindow` (Add-Type de PowerShell; ojo: el tipo C# hay que declararlo en CADA llamada de shell) → `visibility: visible` → capturas CDP OK.
+
+**Regla aprendida**: antes de capturar pantalla de la app, verificar `IsIconic(hwnd)` y restaurar.
+
+**Resultado**: Login (gradiente azul + tarjeta) y Dashboard (header + KPIs) capturados y confirmados visualmente
+
+---
+
+### [2026-09-25 11:52:46] - 📈 Progreso: Instalador final regenerado con todos los fixes
+
+**Qué pasó**: `npm run build:exe` → exit 0, block map generado.
+
+**Detalles técnicos**: `release\Nova Tech Cotizador Setup 1.0.0.exe` (80.143.651 bytes, 25/09/2026 11:52:46). Verificado que el `app.asar` contiene el bundle nuevo (`main-PhhFv71U.js`) y el marker de hash history.
+
+**Resultado**: Instalador al día — ya NO incluye el bug de pantalla blanca
+
+---
+
+### [2026-09-25 11:57:00] - 📊 Tarea: Instalación silenciosa + pruebas E2E completadas
+
+**Qué pasó**: Instalador ejecutado con `/S` (NSIS silencioso) → instalado en `%LOCALAPPDATA%\Programs\Nova Tech Cotizador\`.
+
+**Verificación en la app INSTALADA**: procesos ✓ · PostgreSQL init ✓ · servidor Express :3001 health ✓ · React carga desde asar instalado ✓ · ventana visible ✓ · login `#/` con formulario ✓ · **CEO001 → `#/dashboard` con "Hola, Sebastian" + KPIs ✓ · 0 excepciones, 0 errores de consola** ✓
+
+**Resultado**: La app instalada funciona de extremo a extremo — PRIMERA VERIFICACIÓN VISUAL COMPLETA
+
+---
+
+### [2026-09-25 11:59:47] - 📝 Nota: Estado final y pendientes de la sesión
+
+**Limpiado**: `server-test.log`, `electron-test.log`, `exe-build.log`, `renderer-debug.log` eliminados (queda `installed-debug.log` mientras la app esté abierta — el stdout está bloqueado).
+
+**Abierto**:
+- App instalada dejada CORRIENDO en `#/dashboard` para inspección (cierra al cerrar la app; posteriormente arranca normal desde el acceso directo)
+- `installed-debug.log` se borrará al cerrar la app
+- Proyecto `nova-tech-cotizador/` sigue **sin trackear en git** (0 archivos versionados) — decidir con el usuario si se inicializa repo
+- Mejoras futuras: guardado de sesión en localStorage (recarga = volver al login), sidebar/falta de cotizaciones del CEO, `author` en package.json (warning electron-builder)
+
+**Resultado**: Los 4 pendientes del día anterior resueltos (captura revisada, exe regenerado, login GUI probado, logs limpios)
