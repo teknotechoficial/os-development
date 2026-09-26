@@ -224,3 +224,59 @@
 - Mejoras futuras: guardado de sesión en localStorage (recarga = volver al login), sidebar/falta de cotizaciones del CEO, `author` en package.json (warning electron-builder)
 
 **Resultado**: Los 4 pendientes del día anterior resueltos (captura revisada, exe regenerado, login GUI probado, logs limpios)
+
+---
+
+### [2026-09-26 14:30:00] - 🎨 Progreso: Rediseño dark total al estilo mockup verificado
+
+**Qué pasó**: Se completó la transformación de "página portada" → app oscura estilo TeknoTech Services (navy `#0A182E`, primario `#1877E8`, card `#10233E`, tipografías Orbitron + Chakra Petch, sidebar con pill activo gradiente, footer "Software privado de TeknoTech Services").
+
+**Verificación CDP (v2)**: login (`CÓDIGO DE ACCESO` → CEO001) → sidebar super_admin completo → **Historial con 9 filas** (N°/CLIENTE/TIPO/ESTADO/PRECIO/VENDEDOR/FECHA/ACCIÓN, pills BORRADOR/ENVIADA/ACEPTADA/RECHAZADA/PAGADA) → 0 excepciones, 0 console errors.
+
+**Resultado**: La UI ahora coincide con el boceto del usuario — ya no es "una página portada"
+
+---
+
+### [2026-09-26 14:45:00] - 🔧 Fix: tendencia negativa en rojo + limpieza de BD
+
+**Qué pasó**: El KPI "ACEPTADAS -100% VS. MES ANTERIOR" se mostraba en **verde con flecha ↗**.
+
+**Detalles técnicos**: `ui.tsx` `StatCard` ahora detecta `trend.includes('-')` → `TrendingDown` + `text-[#FB7185]` (rojo), caso positivo `TrendingUp` + verde. `tsc --noEmit` → exit 0.
+
+**BD**: borradas cotizaciones de prueba (`jyjrff`, `jorge pan` + sus notificaciones FK) → quedan **8 demo** con fechas spread (abr→sep 2026) para poblar el gráfico "VENTAS POR MES".
+
+**Resultado**: KPIs con semántica visual correcta; BD limpia para demo
+
+---
+
+### [2026-09-26 15:15:34] - 📈 Progreso: Instalador dark regenerado
+
+**Qué pasó**: `npx electron-builder --win nsis` → `BUILDER_EXIT=0`.
+
+**Detalles técnicos**: El primer intento fue matado por el timeout de la shell en etapa NSIS (falso negativo: el builder **no** estaba colgado, estaba comprimiendo el `.nsis.7z` de 80MB). Solución: lanzarlo **desacoplado** con `([wmiclass]'Win32_Process').Create('cmd /c build-installer.cmd')` + polling del log/tamaño.
+
+**Resultado**: `release\Nova Tech Cotizador Setup 1.0.0.exe` — **80.557.316 bytes, 26/09/2026 15:15:34**
+
+---
+
+### [2026-09-26 15:20:36] - 📊 Tarea: Instalación silenciosa + E2E en app instalada
+
+**Qué pasó**: `Start-Process Setup.exe -ArgumentList /S` **sin `-Wait`** (WMI Create devolvió rv=8) → polling → instalado en `%LOCALAPPDATA%\Programs\Nova Tech Cotizador\` (exe 177.050.112 bytes, 15:20:36).
+
+**Verificación**: health `:3001` OK · CDP `:9222` OK · login CEO001 → `#/dashboard` · **Dashboard** (saludo Sebastian, 4 KPIs con trend ↘ rojo confirmado, recientes, gráfico 6 meses) · **Equipo** (3 devs + tarjetas miembros) · **Configuración** (6 campos con datos TeknoTech Services) · **Historial** 8 filas · **0 excepciones, 0 console errors**.
+
+**Resultado**: INSTALADOR NUEVO VERIFICADO VISUALMENTE de extremo a extremo
+
+---
+
+### [2026-09-26 15:35:00] - 📝 Nota: Flags anti-throttling + estado de la sesión
+
+**Aprendizaje clave**: aunque `ShowWindow(SW_RESTORE)` reportaba OK, la app instalada seguía con `document.hidden=true` → `Page.captureScreenshot` colgaba (timeout 45s ×3). **Fix definitivo**: lanzar Electron con `--disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-background-timer-throttling --start-maximized` (guardado en `launch-installed.cmd`) → `visibility: visible` → capturas en ~250ms.
+
+**Estado**:
+- App instalada CORRIENDO con debug `:9222` (4 procesos)
+- `installed-debug.log` bloqueado mientras la app esté abierta
+- Limpieza: `exe-build*.log`, `renderer-debug.log`, capturas probe eliminadas
+- Proyecto `nova-tech-cotizador/` sigue **sin trackear en git** (solo se commitea `memoria/`)
+
+**Resultado**: Jornada cerrada — app 100% operativa, interfaz rediseñada, instalador verificado
