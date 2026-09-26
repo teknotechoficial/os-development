@@ -280,3 +280,29 @@
 - Proyecto `nova-tech-cotizador/` sigue **sin trackear en git** (solo se commitea `memoria/`)
 
 **Resultado**: Jornada cerrada — app 100% operativa, interfaz rediseñada, instalador verificado
+
+### [2026-09-26 22:20:00] - ✅ Completado: Login de 2 metodos + PIN + seguridad (backend + UI)
+
+**Backend (agente)**: migraciones idempotentes (password_hash/pin_hash/has_credentials, `'hashed'`→NULL), tablas login_attempts + ecovery_tokens + services; server/auth-helpers.ts (scrypt N=16384 + HMAC setup token TTL 10min + nodemailer 10.0.10); server/routes/auth.ts (login usuario/correo+contraseña o codigo+PIN, setup primer ingreso, recover generico, reset, change de credenciales); lockout 5 fallos/15min → HTTP 423 `"Demasiados intentos fallidos. Cuenta bloqueada temporalmente por 15 minutos."`; CRUD /api/services (6 servicios seed); settings SMTP + POST /api/settings/test-mail; team PUT /:id/reset-credentials.
+
+**UI (agente)**: Login.tsx 2 columnas estilo mockup (TEKNOTECH/SERVICES + ambos metodos + checkbox `"Mantener la sesion iniciada"` persistencia real), SetupCredentials.tsx (primer ingreso crea contraseña+PIN), Recover.tsx (2 pasos Contraseña|PIN; sin SMTP → `"Recuperacion por correo no configurada. Contacta al administrador."`), store auth con loginWithPassword/loginWithCode/setup.
+
+**Decisiones del usuario**: código+PIN 4 digitos; recuperacion por Gmail SMTP con App Password (aun NO configurada por el usuario); COTIZACIONES=activas / HISTORIAL=archivadas + selector "Ver"; CLIENTES eliminado.
+
+### [2026-09-26 22:25:00] - ✅ Completado: paginas nuevas + nav mockup + E2E en verde
+
+- **Nav nueva** (AppLayout.tsx): logo perro + INICIO / COTIZACIONES / SERVICIOS / REPORTES / HISTORIAL / AJUSTES + separador + extras por rol (Notificaciones, Nueva Cotizacion, Mi Trabajo, Equipo, Configuracion) + avatar silueta. CLIENTES eliminado.
+- **Paginas nuevas**: Services.tsx (catalogo 6 servicios + COTIZAR), Reports.tsx (KPIs, ventas/mes, por estado/vendedor/servicio, top clientes, CSV `fecha;cliente;producto;estado;total` con BOM), QuoteHistory.tsx con `mode?: active|archived`, Settings.tsx (MI CUENTA para todos + SMTP gerente+ con test-mail), Dashboard con ticks de eje + tono violeta aceptadas.
+- **Rutas**: /, /setup, /recover (fuera del layout), /dashboard, /cotizaciones, /historial, /servicios, /reportes, /nueva-cotizacion, /equipo, /configuracion, /cotizacion/:id.
+- **Verificacion E2E en app empaquetada** (erify-v5.js, CDP 9222): TODO EN VERDE → login mockup, codigo+PIN CEO001/1234, setup por codigo, password login, lockout banner rojo al intento 6, recover mensaje SMTP, sidebar 9 items, 8 cotizaciones activas / 2 archivadas, servicios 6, reportes 6 graficos, ajustes 14 inputs, **0 excepciones / 0 errores de consola**. Capturas 5-*.png.
+- **Fixes**: ite.config.ts watch.ignored (crash EBUSY por electron-builder); mix-blend-lighten en logos (PNG con fondo negro → caja negra en sidebar/login); 	sc exit 0 con declaraciones *.png/*.svg/*.ico en styles/index.d.ts; basura de pruebas jhon/pedro eliminada de DB (quotes demo = 8).
+
+### [2026-09-26 20:30:00] - ✅ Instalador final verificado + entrega
+
+- **Instalador**: elease\Nova Tech Cotizador Setup 1.0.0.exe (80.7 MB) reconstruido con bundle nuevo incluyendo fix `mix-blend-lighten` en logos (sin caja negra). `BUILDER_EXIT=0`.
+- **Instalacion silenciosa** (Start-Process /S sin -Wait + polling) → %LOCALAPPDATA%\Programs\Nova Tech Cotizador\ (exe 177 MB, mtime fresco).
+- **E2E sobre el .exe INSTALADO** (erify-v5.js CDP 9222): TODO EN VERDE - login mockup, codigo+PIN CEO001/1234, sidebar 9 items, servicios 6, reportes 6 svg, cotizaciones 6 activas, historial 2 archivadas, ajustes 14 inputs, password login, lockout banner al intento 6, recover con mensaje SMTP, **0 excepciones / 0 console errors**.
+- **Capturas finales**: 5-login.png (logo blend perfecto), 5-dashboard.png, 5-servicios.png, 5-recover.png, 5-lockout.png.
+- **Limpieza**: logs bloqueables eliminados (installed-debug.log, 2e-debug.log, xe-build*.log).
+- **Credenciales de prueba**: CEO001 Sebastian = clave123 / PIN 1234 (ya configurado). Los demas 9 usuarios crean su credencial en su primer ingreso.
+- **Pendiente usuario**: (1) Gmail App Password → Ajustes → SMTP para activar recuperacion por correo; (2) datos reales de servicios para reemplazar la semilla.
