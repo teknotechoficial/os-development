@@ -306,3 +306,13 @@
 - **Limpieza**: logs bloqueables eliminados (installed-debug.log, 2e-debug.log, xe-build*.log).
 - **Credenciales de prueba**: CEO001 Sebastian = clave123 / PIN 1234 (ya configurado). Los demas 9 usuarios crean su credencial en su primer ingreso.
 - **Pendiente usuario**: (1) Gmail App Password → Ajustes → SMTP para activar recuperacion por correo; (2) datos reales de servicios para reemplazar la semilla.
+
+### [2026-09-26 21:45:00] - ✅ Ajustes de UI segun feedback: logo transparente, login sin scroll, dashboard al boceto
+
+**Feedback del usuario** (capturas con marcas rojas): caja negra del logo, login con scroll y amontonado, dashboard desalineado del boceto, columnas de tabla pegadas, grafico chico, sidebar con texto de mas.
+
+- **Logo**: generado `assets/logo-white.png` (PowerShell System.Drawing: negro→alfa 0, RGB blanco, 1024px) a partir del PNG original → sin caja negra en login ni sidebar; se elimino `mix-blend-lighten`.
+- **Login rediseñado al boceto**: `h-screen overflow-hidden` (SIN scroll verificado: docH=winH=681), eslogan `Tecnologia que impulsa, lealtad que permanece.`, 4 tarjetas de servicios, footer `TEKNOTECH SERVICES` con linea decorativa, esquinas decorativas y watermark sutil; card derecha con borde azul + `¿Olvidaste tu contraseña?` + divider con circulo vacio; **toggle `#login-toggle`** (password ⇄ codigo+PIN, un solo form visible) reemplaza los dos forms apilados; inputs sin labels (placeholder + aria-label).
+- **Sidebar**: solo el logo perro (sin `NOVA TECH COTIZADOR`), items mas grandes (icon 24, py-3.5, rounded-2xl, activo azul solido), ancho w-72, orden del boceto: Inicio/Cotizaciones/Servicios/Historial/Reportes/Ajustes + extras.
+- **Dashboard**: `trendOf` siempre con texto (fallback ` vs. mes anterior` / `sin cambios` → card PENDIENTES ya no queda vacia), `StatCard` estilo boceto (tile solido colorido, numero text-4xl, card `#0E3266` rounded-3xl), tabla con anchos fijos (TOTAL w-32 text-right pr-10 + ESTADO w-40 pl-4, filas py-4), grafico `h-[340px]` con ticks fontSize 12, saludo sin coma.
+- **E2E** `verify-v5.js` actualizado (click `#login-toggle` antes del flujo codigo, link olvidaste) y corrido en win-unpacked y en el **.exe instalado**: TODO EN VERDE, 0 excepciones, 0 errores, `BUILDER_EXIT=0` (instalador 80.8 MB reconstruido, instalacion silenciosa verificada, mtime 21:27).
