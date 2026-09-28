@@ -383,3 +383,27 @@
 - **BD limpia**: 7 intentos fallidos (ceo001/amauir del lockout E2E) borrados → CEO desbloqueado; 6 servicios intactos (svc-app tiene icon='Smartphone', semánticamente correcto; el resto usa fallback por categoría en UI), 9 quotes (jorge preservada); servicio de prueba eliminado.
 - **Cierre**: app cerrada (3001/9222 libres), cachés/sesión/log de Chromium en `%APPDATA%\nova-tech-cotizador` borrados.
 - **Pendientes del usuario (sin cambios)**: correos/contraseñas REALES (seed *@novatech.com), credencial CEO real (provisional CEO001/clave123/1234), Gmail App Password SMTP, datos reales de servicios (ahora editables por el CEO en la app).
+
+### [2026-09-27 18:54:00] - 📦 Lote 13 puntos feedback: StatCard badge al pie, sidebar sin dividers, TAREAS PENDIENTES CRUD, gestionar cotizaciones, equipo en modal, categoría libre, Ajustes rediseñado, search dropdown; build9
+
+**Feedback usuario (13 capturas)**: badge de trend StatCard mal ubicado, dividers del sidebar, dashboard recientes muy apretados, falta CRUD de tareas pendientes, QuoteHistory sin gestión (editar/eliminar), fichas de equipo no clickeables desde cards, "Gestionar equipo" debería ser modal difuminado, categoría de servicio hardcodeada, Ajustes con bloque RESUMEN y layout viejo, búsqueda header como overlay incómodo, más pulido general.
+
+- **Punto 1 - StatCard**: en `src/renderer/components/ui.tsx` el badge de trend se movió al pie de la tarjeta (debajo del label, con `border-t`), ya no compite con el número.
+- **Punto 2 - Sidebar**: en `AppLayout.tsx` quitados los dos dividers; orden de navegación: **Inicio, Nueva Cotización, Equipo, Cotizaciones, Servicios, Historial, Reportes, Ajustes** (Ajustes último y ya sin divider propio).
+- **Punto 3 - Dashboard recientes**: "Cotizaciones recientes" → `slice(0,5)`, filas `py-4` (aire).
+- **Punto 4 - TAREAS PENDIENTES con CRUD real**: nueva tabla **tasks** (`server/db.ts` + `database/schema.ts`), `server/routes/tasks.ts` (GET/POST/PUT/DELETE) registrada en `server/index.ts` bajo `/api/tasks`; UI con form inline + checkbox + delete en hover.
+- **Punto 5 - QuoteHistory modo gestión**: botón "Gestionar cotizaciones" → columna Gestión (Editar → detalle; Eliminar en 2 pasos: ¿Eliminar? → confirmar). **Nuevo `DELETE /api/quotes/:id`** en `server/routes/quotes.ts`; store `quotes.ts` += `removeQuote`.
+- **Punto 6 - TeamManager clickeable**: cards de "Miembros del equipo" son botones completos → `PersonModal`; lupa del header: resultado persona → `PersonModal`.
+- **Punto 7 - Gestionar equipo en modal**: banner "Gestionar equipo" (Agregar miembro + Gestionar equipo) → tabla MIEMBRO/CÓDIGO/SECTOR/ACCIONES ahora en **MODAL difuminado** (backdrop z-50, scroll-lock) en vez de inline.
+- **Punto 8 - Services categoría libre**: select de categoría con "＋ Nueva categoría…" → input libre `#svc-category-custom` (columna `category` TEXT libre; label fallback uppercase, icono fallback `Boxes`).
+- **Punto 9 - Settings rediseñado**: eliminado el bloque RESUMEN; título "Ajustes", header avatar+chips rol/código/correo, "Cambiar credenciales" con icono, Empresa y SMTP en grid 2 columnas `xl` con headers icono+descripción, único botón **GUARDAR CAMBIOS** al final.
+- **Punto 10 - Búsqueda header**: overlay modal revertido → **dropdown inline** bajo el input (sin backdrop); Enter → primer resultado.
+- **Build9**: `release\TeknoTech Services Cotizador Setup 1.0.0.exe` **~77.1 MB**, `BUILDER_EXIT=0`.
+- **Verificación de build**: `tsc --noEmit` ✅ y `npm run build` ✅ (ambos verdes).
+
+**Verificación final (2026-09-28)**: E2E **5/5 VERDE** sobre **build11 instalado** — `verify-b13` **63/63 VERDE** (0 excepciones / 0 console errors), verify-c/d/b2/v5 exit 0, runner `run-all-b13.ps1` → `RUNNER_EXIT=0`.
+
+- **Build11** (`BUILDER_EXIT=0`, ~80.9 MB, 28/9 19:50, instalado silencioso `/S`, asar verificado): build10 + **animaciones extra** en 13 archivos del renderer — transición de páginas, hover-lift en StatCards/tarjetas, stagger-in en tablas/listas, dropdown de búsqueda fade+slide, indicador activo del sidebar animado, banner de Settings slide-in, tachado animado de tareas, login fade-in. Keyframes en `globals.css`, `prefers-reduced-motion` respetado, **sin dependencias nuevas** y E2E intacto.
+- **Probes endurecidos** (reutilizables): health-wait del server antes del login, retry de login si no llega a `#/dashboard`, `ev` con 3 reintentos, timeout CDP 60s, polling asíncrono en checks de borrado/creación/carga de settings, screenshots no-fatales (120s), runner con reintento ante FATAL (hasta 3 intentos).
+- **BD anomalía (REPORTADA, sin tocar)**: quotes demo 9 → **7** (faltan `demo-quote-03` Taller Mecánico y `demo-quote-08` Startup FinTech); **jorge recreada con id nuevo** `9e904f1a-ba57-49f4-82ff-076d396808e7` (el `2070f467-2e43-48b8-b033-f9b4b747a1da` ya no existe; jorge conservada). Posible causa: `database/seed.ts:153` (`DELETE ... WHERE id LIKE 'demo-%'` + reinsert) o seed parcial de otro agente.
+- **Limpieza final**: ZZ E2E, Svc E2E B13, Servicio Prueba E2E, tareas E2E y 17 `login_attempts` borrados → CEO001 desbloqueado; quotes = 6 demos + jorge.
