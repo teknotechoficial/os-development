@@ -513,3 +513,16 @@
 - **BD final**: 9 quotes, 6 services, 0 login_attempts; app cerrada.
 
 **Aprendizaje**: (1) backdrops `fixed` dentro de contenedores con animacion/transform = bug classico de full-screen → siempre portal a body; (2) para diagnosticar UI "a ojo" usar scripts CDP de medicion (rect vs viewport) antes de adivinar; (3) NSIS bloqueado 4+ veces → fallback copia win-unpacked.
+
+### [2026-09-29 17:45:00] - 🔥 Tarea: Reportes debajo de Inicio (build18) + E2E 5/5
+
+**Que paso**: El usuario pidio mover "Reportes" debajo de "Inicio" (antes estaba al final tras Ajustes).
+
+**Detalles tecnicos**:
+- **AppLayout.tsx**: REPORTES_ITEM sacado del render final y metido en `NAV_ITEMS` en posicion 2 (tras Inicio); render nav = items + extras + AJUSTES. Orden final: ["Inicio","Reportes","Cotizaciones","Nueva Cotización","Servicios","Equipo","Historial","Ajustes"].
+- **Probes actualizados**: verify-c.js y check-nav.js (expected log) con el nuevo orden.
+- **Instalacion**: NSIS bloqueado intentos 1-2, **intento 3 EXIT=0** (ASAR 17:31:52 = build18) - patron intermitente confirmado; no hizo falta fallback win-unpacked.
+- **E2E build18**: **5/5** - b13 **67/67**, NAV COINCIDE:true, v5 SIDEBAR orden correcto items:8, backdrops full y=0/bottom=697/vh=697, 0 excepciones. Runner exit 0.
+- **BD final**: 9 quotes, 6 services, 0 attempts; app cerrada.
+
+**Aprendizaje**: NSIS alterna entre bloqueado/libre entre intentos → siempre reintentar max 3 antes del fallback win-unpacked (ahorra el paso de copia manual).

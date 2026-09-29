@@ -23,9 +23,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   `verify-b13` 63/63.
 
 ### Changed
-- Build17 instalado (copia directa de `win-unpacked`, NSIS bloqueado por política).
-- Sidebar reordenado: Inicio → Cotizaciones → Nueva Cotización → Servicios → Equipo →
-  Historial → Ajustes → Reportes (Reportes al final porque no entró en la cadena pedida).
+- Build18 instalado (NSIS, intento 3 tras bloqueos de Control de aplicaciones).
+- Sidebar reordenado: Inicio → Reportes → Cotizaciones → Nueva Cotización → Servicios →
+  Equipo → Historial → Ajustes.
 - Difuminados (backdrops de modales) en pantalla completa: los modales de Equipo,
   Persona y Servicios ahora se portalizan a `document.body` (`createPortal`), ya que
   dentro de `animate-page-in` su transform rompía `position: fixed` y el backdrop quedaba

@@ -33,6 +33,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Inicio', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Reportes', icon: BarChart3, path: '/reportes' },
   { label: 'Cotizaciones', icon: FileText, path: '/cotizaciones' },
   {
     label: 'Nueva Cotización',
@@ -46,7 +47,6 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const AJUSTES_ITEM: NavItem = { label: 'Ajustes', icon: Settings, path: '/configuracion' };
-const REPORTES_ITEM: NavItem = { label: 'Reportes', icon: BarChart3, path: '/reportes' };
 
 const NAV_EXTRA_ITEMS: NavItem[] = [
   { label: 'Mi Trabajo', icon: Laptop, path: '/mi-trabajo', roles: ['desarrollador'] },
@@ -243,7 +243,6 @@ const AppLayout: React.FC = () => {
           {visibleItems.map(renderNavItem)}
           {visibleExtraItems.map(renderNavItem)}
           {renderNavItem(AJUSTES_ITEM)}
-          {renderNavItem(REPORTES_ITEM)}
         </nav>
 
         <div className="border-t border-[#16294A] px-4 py-4">
