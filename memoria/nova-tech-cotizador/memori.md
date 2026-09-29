@@ -526,3 +526,19 @@
 - **BD final**: 9 quotes, 6 services, 0 attempts; app cerrada.
 
 **Aprendizaje**: NSIS alterna entre bloqueado/libre entre intentos → siempre reintentar max 3 antes del fallback win-unpacked (ahorra el paso de copia manual).
+
+### [2026-09-29 21:30:00] - 🔥 Tarea: Rediseño Ajustes (tabs) + Perfil ampliado + Cropper de foto (build19) - E2E 5/5
+
+**Que paso**: El pidio: rediseñar Ajustes, mas configuraciones en Perfil, y "funcion de acomodar la imagen". Ejecutado con 4 subagentes TURBO en paralelo (ImageCropper nuevo, ProfileModal reescrito, Settings reescrito con tabs, probes E2E actualizados).
+
+**Detalles tecnicos**:
+- **Settings.tsx → tabs**: tablist `role="tablist"` + `role="tab"` labels exactos Cuenta/Empresa/Correos (solo `canManage`; no-managers solo Cuenta sin tablist). Empresa: nuevo `#settings-margin` (marginMinimum que existia en datos sin UI) + **upload de logo real** (file→canvas max 320px→JPEG dataURL, preview, Quitar, + input URL `#settings-logo`). Cuenta: cabecera con **avatar real** (antes iniciales). ids conservados `settings-company`/`settings-smtp-host` (los buscan los probes). Sin palabra "Resumen" (check b13).
+- **ProfileModal.tsx**: ahora editable **Nombre** + **Email** (`PUT /api/team/:id {name,email,avatar?}`), boton "Cambiar credenciales" → `window.location.hash='#/configuracion'`, **createPortal a document.body** (antes no tenia portal), footer "Guardar cambios" + conserva "Guardar foto"/"Quitar foto" (matchers v5). Nuevo `auth.updateUser(partial)` en store/auth.ts para refrescar header.
+- **ImageCropper.tsx (nuevo)**: contrato `{src,onCancel,onConfirm(dataURL)}`, portal a body, circulo 280px, drag pointer-events + clamp de cobertura, zoom slider 1-4 (mantener centro), salida canvas **160x160 JPEG 0.85** con formula `sx=-offX/scale, srcSize=280/scale`, Escape cancela, body scroll lock.
+- **Probes**: b13 seccion 5 reescrita por tabs (5.3 click Empresa, 5.4 Correos, 5.5a/b/c ids, 5.6 vuelve Cuenta) + **nueva seccion 7** perfil (7.1-7.7) → **76 checks** (antes 67); verify-c añadio bloque SETTINGS (tabs:3) tras EDITOR.
+- **Verificacion**: tsc 0, node --check 0, build19, NSIS intento1 (ASAR 20:18), **E2E 5/5** (b13 76/76, 0 excepciones), **probe-cropper.js 11/11** (abrir, slider zoom, drag, APLICAR, preview JPEG nuevo, dirty, cerrar sin guardar → NO persistio avatar test).
+- **Gotchas probe cropper**: (1) regex debia ser `/acomodar imagen/i` (titulo real sin "LA"); (2) tras E2E v5 hay lockout de login → borrar `login_attempts` antes de probes manuales; (3) estar en `#/recover` rompe setVal de login (falta ir a `#/` primero).
+- **Capturas**: b13-ajustes.png (tabs CUENTA/EMPRESA/CORREOS + avatar real), b13-profile.png (modal con nombre/email editables) verificadas visualmente.
+- **BD final**: 9 quotes, 6 services, 0 attempts; app cerrada.
+
+**Aprendizaje**: patrón TURBO (4 agentes paralelos con CONTRATO de API fijado de antemano: firma ImageCropper exacta + labels de tabs exactos + ids de inputs = probes y UI se alinean sin revision posterior). Los probes E2E se actualizan en el MISMO lote que la UI que rompen (seccion 5 dependia de "sin tabs").

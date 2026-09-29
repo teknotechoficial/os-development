@@ -52,6 +52,7 @@ interface AuthState {
   loginWithCode: (code: string, pin: string, remember: boolean) => Promise<LoginResult>;
   setup: (token: string, password: string, pin: string) => Promise<User>;
   completeSetup: (user: User) => void;
+  updateUser: (partial: Partial<User>) => void;
   logout: () => void;
 }
 
@@ -98,6 +99,11 @@ export const useAuth = create<AuthState>()(
         return data.user;
       },
       completeSetup: (user) => set({ user, isAuthenticated: true }),
+      updateUser: (partial) => {
+        const current = get().user;
+        if (!current) return;
+        set({ user: { ...current, ...partial } });
+      },
       logout: () => {
         set({ user: null, isAuthenticated: false });
         window.localStorage.removeItem(STORE_KEY);

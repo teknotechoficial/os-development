@@ -23,7 +23,6 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   `verify-b13` 63/63.
 
 ### Changed
-- Build18 instalado (NSIS, intento 3 tras bloqueos de Control de aplicaciones).
 - Sidebar reordenado: Inicio → Reportes → Cotizaciones → Nueva Cotización → Servicios →
   Equipo → Historial → Ajustes.
 - Difuminados (backdrops de modales) en pantalla completa: los modales de Equipo,
@@ -35,6 +34,31 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 - Historial (`/historial`): eliminado el botón "Gestionar cotizaciones" (solo queda en
   `/cotizaciones`); "Nueva Cotización" se mantiene en ambas.
 - `author` añadido a `package.json` (elimina warning de electron-builder).
+
+### Fixed
+- Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
+
+## [1.0.0-build19] - 2026-09-29
+
+### Added
+- **Ajustes con tabs** (`Cuenta` / `Empresa` / `Correos`): tablist `role="tablist"` con
+  paneles; no-managers ven solo Cuenta.
+- Tab Empresa: campo **Margen mínimo (%)** (`settings-margin` → `marginMinimum`) y
+  **subida real de logo** (file input → resize canvas máx 320px → JPEG dataURL, preview +
+  "Quitar logo" + opción de pegar URL).
+- Tab Cuenta: cabecera con **avatar real** (antes solo iniciales).
+- **Perfil ampliado** (`ProfileModal`): edición de **Nombre** y **Email**
+  (`PUT /api/team/:id`), botón "Cambiar credenciales" (navega a Ajustes), y el modal ahora
+  usa `createPortal` a `document.body`.
+- **ImageCropper**: componente nuevo de recorte de foto con **zoom (1–4x) + arrastre**
+  sobre círculo, salida JPEG 160×160 (antes: recorte automático centrado sin control).
+- `auth.updateUser(partial)` en el store de auth para refrescar el header tras editar
+  perfil.
+- E2E: probe b13 ampliado a **76 checks** (sección 5 por tabs + nueva sección 7 de
+  perfil); verify-c con bloque SETTINGS (tabs=3).
+
+### Changed
+- Build19 instalada (NSIS intento 1, ASAR 20:18).
 
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { AlertCircle, Building2, Check, KeyRound, Mail, Server } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertCircle, Building2, Check, KeyRound, Mail, Server, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
+import { useTeam } from '@/renderer/store/team';
 import { apiUrl } from '@/renderer/api';
 import { COMPANY, MINIMUM_MARGIN, ROLE_LABELS } from '@/shared/constants';
 import { Button, Card, PageHeader, Skeleton, Spinner } from '@/renderer/components/ui';
@@ -11,6 +12,8 @@ const LABEL_CLASS =
 	'block text-xs uppercase tracking-[0.12em] text-[#8FA6C4] font-semibold mb-1.5';
 const CARD_CLASS = 'bg-[#10233E] border border-[#1C3557] rounded-2xl';
 const SECTION_TITLE = 'font-display text-sm uppercase tracking-[0.12em] text-white mb-4';
+
+type TabId = 'cuenta' | 'empresa' | 'correos';
 
 interface SettingsData {
 	companyName: string;
@@ -120,13 +123,19 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label }) => (
 
 const Settings: React.FC = () => {
 	const { user } = useAuth();
+	const { users, fetchTeam } = useTeam();
 	const role = user?.role;
 	const canManage = role === 'super_admin' || role === 'gerente';
+
+	const me = user ? users.find((u) => u.id === user.id) : undefined;
+	const avatarUrl = me?.avatar ?? user?.avatar ?? null;
 
 	const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [banner, setBanner] = useState<BannerState | null>(null);
+
+	const [activeTab, setActiveTab] = useState<TabId>('cuenta');
 
 	const [credField, setCredField] = useState<'password' | 'pin'>('password');
 	const [credCurrent, setCredCurrent] = useState('');
@@ -136,6 +145,13 @@ const Settings: React.FC = () => {
 	const [credBanner, setCredBanner] = useState<BannerState | null>(null);
 
 	const [testingMail, setTestingMail] = useState(false);
+
+	const logoFileRef = useRef<HTMLInputElement>(null);
+	const [logoError, setLogoError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (users.length === 0) void fetchTeam();
+	}, [users.length, fetchTeam]);
 
 	useEffect(() => {
 		let active = true;
@@ -183,6 +199,7 @@ const Settings: React.FC = () => {
 
 	const handleSave = async (event: React.FormEvent) => {
 		event.preventDefault();
+		if (!canManage) return;
 		setSaving(true);
 		setBanner(null);
 		try {
@@ -308,8 +325,80 @@ const Settings: React.FC = () => {
 		}
 	};
 
-	const updateField = (key: keyof SettingsData) => (value: string) =>
+	const setField = (key: keyof SettingsData, value: string) =>
 		setSettings((prev) => ({ ...prev, [key]: value }) as SettingsData);
+
+	const updateField = (key: keyof SettingsData) => (value: string) => setField(key, value);
+
+	const handleMargin = (value: string) =>
+		setSettings((prev) => {
+			if (value.trim() === '') return { ...prev, marginMinimum: 0 };
+			const next = Number(value);
+			return Number.isFinite(next) ? { ...prev, marginMinimum: next } : prev;
+		});
+
+	const handleLogoFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		event.target.value = '';
+		if (!file) return;
+		if (!file.type.startsWith('image/')) {
+			setLogoError('El archivo debe ser una imagen');
+			return;
+		}
+		if (file.size > 2 * 1024 * 1024) {
+			setLogoError('La imagen no puede superar 2 MB');
+			return;
+		}
+		const reader = new FileReader();
+		reader.onload = () => {
+			const img = new Image();
+			img.onload = () => {
+				const maxSide = 320;
+				const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+				const width = Math.max(1, Math.round(img.width * scale));
+				const height = Math.max(1, Math.round(img.height * scale));
+				const canvas = document.createElement('canvas');
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) {
+					setLogoError('No se pudo procesar la imagen');
+					return;
+				}
+				ctx.drawImage(img, 0, 0, width, height);
+				setField('companyLogo', canvas.toDataURL('image/jpeg', 0.8));
+				setLogoError(null);
+			};
+			img.onerror = () => setLogoError('No se pudo leer la imagen');
+			img.src = String(reader.result);
+		};
+		reader.onerror = () => setLogoError('No se pudo leer la imagen');
+		reader.readAsDataURL(file);
+	};
+
+	const tabs: { id: TabId; label: string }[] = canManage
+		? [
+				{ id: 'cuenta', label: 'Cuenta' },
+				{ id: 'empresa', label: 'Empresa' },
+				{ id: 'correos', label: 'Correos' },
+			]
+		: [{ id: 'cuenta', label: 'Cuenta' }];
+
+	const logoInputValue = settings.companyLogo.startsWith('data:') ? '' : settings.companyLogo;
+
+	const settingsSkeleton = (
+		<div className="py-6 space-y-6">
+			<div className="flex justify-center pb-2">
+				<Spinner />
+			</div>
+			<div className="bg-[#10233E] border border-[#1C3557] rounded-2xl p-6 space-y-4">
+				<Skeleton className="h-4 w-1/3 rounded-md" />
+				<Skeleton className="h-10 w-full rounded-xl" />
+				<Skeleton className="h-10 w-full rounded-xl" />
+				<Skeleton className="h-10 w-2/3 rounded-xl" />
+			</div>
+		</div>
+	);
 
 	return (
 		<div className="max-w-5xl mx-auto space-y-6">
@@ -320,124 +409,157 @@ const Settings: React.FC = () => {
 
 			<Banner banner={banner} />
 
-			<Card className={`p-6 ${CARD_CLASS}`}>
-				<div className="flex items-center gap-4 mb-6 pb-5 border-b border-[#16294A]">
-					<span className="w-14 h-14 rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] font-display text-xl font-bold flex items-center justify-center shrink-0 uppercase">
-						{(user?.name || '?')
-							.split(' ')
-							.filter(Boolean)
-							.map((part: string) => part[0])
-							.slice(0, 2)
-							.join('')}
-					</span>
-					<div className="min-w-0">
-						<p className="font-display text-lg text-white uppercase tracking-wide truncate">
-							{user?.name || '—'}
-						</p>
-						<div className="flex flex-wrap items-center gap-2 mt-1.5">
-							<span className="text-[10px] uppercase tracking-widest bg-[#1877E8]/20 text-[#60A5FA] border border-[#1877E8]/30 rounded-full px-2.5 py-0.5">
-								{user?.role ? ROLE_LABELS[user.role] || user.role : '—'}
-							</span>
-							{user?.code ? (
-								<span className="text-[10px] uppercase tracking-widest bg-[#0C1E36] text-[#8FA6C4] border border-[#1C3557] rounded-full px-2.5 py-0.5">
-									{user.code}
-								</span>
-							) : null}
-							{user?.email ? (
-								<span className="text-[11px] text-[#5B7295] truncate">{user.email}</span>
-							) : null}
-						</div>
-					</div>
-				</div>
-
-				<div className="flex items-center gap-3 mb-4">
-					<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
-						<KeyRound className="w-4 h-4" />
-					</span>
-					<div>
-						<h2 className={SECTION_TITLE.replace(' mb-4', '')}>Cambiar credenciales</h2>
-						<p className="text-xs text-[#5B7295]">
-							Actualizá tu contraseña o PIN de acceso
-						</p>
-					</div>
-				</div>
-
-				{credBanner ? (
-					<div className="mb-4">
-						<Banner banner={credBanner} />
-					</div>
-				) : null}
-
-				<form onSubmit={handleChangeCredentials} className="space-y-4">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div>
-							<label htmlFor="cred-field" className={LABEL_CLASS}>
-								Tipo de credencial
-							</label>
-							<select
-								id="cred-field"
-								value={credField}
-								onChange={(e) => setCredField(e.target.value as 'password' | 'pin')}
-								className={INPUT_CLASS}
-							>
-								<option value="password">Contraseña</option>
-								<option value="pin">PIN</option>
-							</select>
-						</div>
-						<Field
-							id="cred-current"
-							label="Actual"
-							type="password"
-							value={credCurrent}
-							onChange={setCredCurrent}
-						/>
-						<Field
-							id="cred-next"
-							label="Nueva"
-							type="password"
-							value={credNext}
-							onChange={setCredNext}
-						/>
-						<Field
-							id="cred-confirm"
-							label="Confirmar"
-							type="password"
-							value={credConfirm}
-							onChange={setCredConfirm}
-						/>
-					</div>
-					<div className="pt-1">
-						<Button type="submit" variant="primary" disabled={credSaving}>
-							{credSaving ? 'ACTUALIZANDO…' : 'ACTUALIZAR CREDENCIALES'}
-						</Button>
-					</div>
-				</form>
-			</Card>
-
 			{canManage ? (
-				loading ? (
-					<div className="py-6 space-y-6">
-						<div className="flex justify-center pb-2">
-							<Spinner />
-						</div>
-						<div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-							<div className="bg-[#10233E] border border-[#1C3557] rounded-2xl p-6 space-y-4">
-								<Skeleton className="h-4 w-1/3 rounded-md" />
-								<Skeleton className="h-10 w-full rounded-xl" />
-								<Skeleton className="h-10 w-full rounded-xl" />
-								<Skeleton className="h-10 w-2/3 rounded-xl" />
+				<div
+					role="tablist"
+					aria-label="Secciones de ajustes"
+					className="flex gap-2 p-1 bg-[#0C1E36] border border-[#1C3557] rounded-xl w-fit"
+				>
+					{tabs.map((tab) => (
+						<button
+							key={tab.id}
+							type="button"
+							role="tab"
+							id={`settings-tab-${tab.id}`}
+							aria-selected={activeTab === tab.id}
+							aria-controls={`settings-panel-${tab.id}`}
+							onClick={() => setActiveTab(tab.id)}
+							className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-[0.12em] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#1877E8]/40 ${
+								activeTab === tab.id
+									? 'bg-[#1877E8] text-white shadow-md shadow-blue-900/40'
+									: 'text-[#8FA6C4] hover:bg-[#14294A] hover:text-white'
+							}`}
+						>
+							{tab.label}
+						</button>
+					))}
+				</div>
+			) : null}
+
+			{!canManage || activeTab === 'cuenta' ? (
+				<div
+					role={canManage ? 'tabpanel' : undefined}
+					id={canManage ? 'settings-panel-cuenta' : undefined}
+					aria-labelledby={canManage ? 'settings-tab-cuenta' : undefined}
+					className="space-y-6"
+				>
+					<Card className={`p-6 ${CARD_CLASS}`}>
+						<div className="flex items-center gap-4">
+							{avatarUrl ? (
+								<img
+									src={avatarUrl}
+									alt={user?.name || 'Avatar'}
+									className="w-14 h-14 rounded-2xl object-cover border border-[#1877E8]/30"
+								/>
+							) : (
+								<span className="w-14 h-14 rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] font-display text-xl font-bold flex items-center justify-center shrink-0 uppercase">
+									{(user?.name || '?')
+										.split(' ')
+										.filter(Boolean)
+										.map((part: string) => part[0])
+										.slice(0, 2)
+										.join('')}
+								</span>
+							)}
+							<div className="min-w-0">
+								<p className="font-display text-lg text-white uppercase tracking-wide truncate">
+									{user?.name || '—'}
+								</p>
+								<div className="flex flex-wrap items-center gap-2 mt-1.5">
+									<span className="text-[10px] uppercase tracking-widest bg-[#1877E8]/20 text-[#60A5FA] border border-[#1877E8]/30 rounded-full px-2.5 py-0.5">
+										{user?.role ? ROLE_LABELS[user.role] || user.role : '—'}
+									</span>
+									{user?.code ? (
+										<span className="text-[10px] uppercase tracking-widest bg-[#0C1E36] text-[#8FA6C4] border border-[#1C3557] rounded-full px-2.5 py-0.5">
+											{user.code}
+										</span>
+									) : null}
+									{user?.email ? (
+										<span className="text-[11px] text-[#5B7295] truncate">{user.email}</span>
+									) : null}
+								</div>
 							</div>
-							<div className="bg-[#10233E] border border-[#1C3557] rounded-2xl p-6 space-y-4">
-								<Skeleton className="h-4 w-1/2 rounded-md" />
-								<Skeleton className="h-10 w-full rounded-xl" />
-								<Skeleton className="h-10 w-full rounded-xl" />
-								<Skeleton className="h-10 w-1/2 rounded-xl" />
+						</div>
+					</Card>
+
+					<Card className={`p-6 ${CARD_CLASS}`}>
+						<div className="flex items-center gap-3 mb-4">
+							<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+								<KeyRound className="w-4 h-4" />
+							</span>
+							<div>
+								<h2 className={SECTION_TITLE.replace(' mb-4', '')}>Cambiar credenciales</h2>
+								<p className="text-xs text-[#5B7295]">
+									Actualizá tu contraseña o PIN de acceso
+								</p>
 							</div>
 						</div>
-					</div>
-				) : (
-					<form onSubmit={handleSave} className="space-y-6">
-						<div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+
+						{credBanner ? (
+							<div className="mb-4">
+								<Banner banner={credBanner} />
+							</div>
+						) : null}
+
+						<form onSubmit={handleChangeCredentials} className="space-y-4">
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div>
+									<label htmlFor="cred-field" className={LABEL_CLASS}>
+										Tipo de credencial
+									</label>
+									<select
+										id="cred-field"
+										value={credField}
+										onChange={(e) => setCredField(e.target.value as 'password' | 'pin')}
+										className={INPUT_CLASS}
+									>
+										<option value="password">Contraseña</option>
+										<option value="pin">PIN</option>
+									</select>
+								</div>
+								<Field
+									id="cred-current"
+									label="Actual"
+									type="password"
+									value={credCurrent}
+									onChange={setCredCurrent}
+								/>
+								<Field
+									id="cred-next"
+									label="Nueva"
+									type="password"
+									value={credNext}
+									onChange={setCredNext}
+								/>
+								<Field
+									id="cred-confirm"
+									label="Confirmar"
+									type="password"
+									value={credConfirm}
+									onChange={setCredConfirm}
+								/>
+							</div>
+							<div className="pt-1">
+								<Button type="submit" variant="primary" disabled={credSaving}>
+									{credSaving ? 'ACTUALIZANDO…' : 'ACTUALIZAR CREDENCIALES'}
+								</Button>
+							</div>
+						</form>
+					</Card>
+				</div>
+			) : null}
+
+			{canManage && activeTab === 'empresa' ? (
+				<div
+					role="tabpanel"
+					id="settings-panel-empresa"
+					aria-labelledby="settings-tab-empresa"
+					className="space-y-6"
+				>
+					{loading ? (
+						settingsSkeleton
+					) : (
+						<form onSubmit={handleSave} className="space-y-6">
 							<Card className={`p-6 ${CARD_CLASS}`}>
 								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
 									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
@@ -482,16 +604,110 @@ const Settings: React.FC = () => {
 										value={settings.paymentTitular}
 										onChange={updateField('paymentTitular')}
 									/>
-									<Field
-										id="settings-logo"
-										label="Logo de la empresa (URL)"
-										placeholder="https://..."
-										value={settings.companyLogo}
-										onChange={updateField('companyLogo')}
-									/>
+									<div>
+										<label htmlFor="settings-margin" className={LABEL_CLASS}>
+											Margen mínimo (%)
+										</label>
+										<input
+											id="settings-margin"
+											type="number"
+											min={0}
+											step="any"
+											value={settings.marginMinimum}
+											onChange={(e) => handleMargin(e.target.value)}
+											className={INPUT_CLASS}
+										/>
+									</div>
+									<div className="sm:col-span-2">
+										<span className={LABEL_CLASS}>Logo de la empresa</span>
+										<div className="flex items-center gap-4">
+											{settings.companyLogo ? (
+												<img
+													src={settings.companyLogo}
+													alt="Logo de la empresa"
+													className="w-16 h-16 rounded-xl object-cover border border-[#1C3557] bg-[#0C1E36] shrink-0"
+												/>
+											) : (
+												<span className="w-16 h-16 rounded-xl bg-[#0C1E36] border border-[#1C3557] text-[#5B7295] flex items-center justify-center shrink-0">
+													<Building2 className="w-6 h-6" />
+												</span>
+											)}
+											<div className="flex flex-wrap items-center gap-2">
+												<input
+													ref={logoFileRef}
+													type="file"
+													accept="image/*"
+													className="hidden"
+													onChange={handleLogoFile}
+												/>
+												<Button
+													type="button"
+													variant="secondary"
+													size="sm"
+													onClick={() => logoFileRef.current?.click()}
+												>
+													<Upload className="w-4 h-4" />
+													SUBIR LOGO
+												</Button>
+												{settings.companyLogo ? (
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														onClick={() => {
+															setField('companyLogo', '');
+															setLogoError(null);
+														}}
+													>
+														<Trash2 className="w-4 h-4" />
+														Quitar logo
+													</Button>
+												) : null}
+											</div>
+										</div>
+										{logoError ? (
+											<p className="text-xs text-[#FB7185] mt-2">{logoError}</p>
+										) : null}
+										<div className="mt-3">
+											<label htmlFor="settings-logo" className={LABEL_CLASS}>
+												o pegá una URL
+											</label>
+											<input
+												id="settings-logo"
+												type="url"
+												placeholder="https://..."
+												value={logoInputValue}
+												onChange={(e) => {
+													setField('companyLogo', e.target.value);
+													setLogoError(null);
+												}}
+												className={INPUT_CLASS}
+											/>
+										</div>
+									</div>
 								</div>
 							</Card>
+							<div className="flex justify-end pt-1">
+								<Button type="submit" variant="primary" disabled={saving}>
+									{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+								</Button>
+							</div>
+						</form>
+					)}
+				</div>
+			) : null}
 
+			{canManage && activeTab === 'correos' ? (
+				<div
+					role="tabpanel"
+					id="settings-panel-correos"
+					aria-labelledby="settings-tab-correos"
+					className="space-y-6"
+				>
+					{loading ? (
+						settingsSkeleton
+					) : (
+						<form onSubmit={handleSave} className="space-y-6">
 							<Card className={`p-6 ${CARD_CLASS}`}>
 								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
 									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
@@ -566,14 +782,14 @@ const Settings: React.FC = () => {
 									</div>
 								</div>
 							</Card>
-						</div>
-						<div className="flex justify-end pt-1">
-							<Button type="submit" variant="primary" disabled={saving}>
-								{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
-							</Button>
-						</div>
-					</form>
-				)
+							<div className="flex justify-end pt-1">
+								<Button type="submit" variant="primary" disabled={saving}>
+									{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+								</Button>
+							</div>
+						</form>
+					)}
+				</div>
 			) : null}
 		</div>
 	);
