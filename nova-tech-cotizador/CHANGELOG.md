@@ -23,9 +23,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   `verify-b13` 63/63.
 
 ### Changed
-- Build15 instalado (NSIS, instalación silenciosa `/S` verificada).
+- Build16 instalado (NSIS, instalación silenciosa `/S` verificada).
 - Header: eliminado el botón "SALIR" suelto (logout disponible en el menú de avatar →
   "Cerrar sesión").
+- Historial (`/historial`): eliminado el botón "Gestionar cotizaciones" (solo queda en
+  `/cotizaciones`); "Nueva Cotización" se mantiene en ambas.
 - `author` añadido a `package.json` (elimina warning de electron-builder).
 
 ### Fixed

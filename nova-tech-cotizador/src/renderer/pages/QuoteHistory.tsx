@@ -103,7 +103,7 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 					isArchived ? 'Cotizaciones cerradas y archivo' : `Cotizaciones vigentes (${scoped.length})`
 				}
 				actions={
-					canManage ? (
+					canManage && !isArchived ? (
 						manage ? (
 							<Button variant="secondary" onClick={() => { setManage(false); setConfirmId(null); }}>
 								<X className="w-4 h-4" />

@@ -485,3 +485,16 @@
 - **BD final**: 9 quotes, 6 services, 5 notifs, 0 login_attempts; app cerrada.
 
 **Aprendizaje**: al eliminar elementos del header/ UI, buscar en TODOS los probes referencias (grep `Salir|salir`); v5 solo loguea asi que no falla, pero invalida silenciosamente checks downstream (logout/lockout).
+
+### [2026-09-29 11:52:00] - 🔥 Tarea: Quitar boton "Gestionar cotizaciones" del Historial (build16) + E2E 5/5
+
+**Que paso**: El usuario pidio eliminar el boton "GESTIONAR COTIZACIONES" (lapiz) de la pagina Historial - "no debe estar ahi".
+
+**Detalles tecnicos**:
+- **QuoteHistory.tsx** es el componente compartido de `/cotizaciones` (mode active) y `/historial` (mode archived): `actions={canManage && !isArchived ? (...) : (...)}` - en Historial ahora solo queda "Nueva Cotizacion"; el modo gestion (boton + Salir de gestion) solo existe en Cotizaciones. En Cotizaciones no cambio nada.
+- **Probe nuevo**: `verify-b13` 2.15 (historial SIN boton, presente=false) + 2.16 (cotizaciones SI tiene) → total de checks **63 -> 65**.
+- **Build16**: tsc 0, build ok, `BUILDER_EXIT=0`; instalacion intento 1 OK esta vez (ASAR 11:45:42).
+- **E2E sobre build16**: **5/5**, `verify-b13` **65/65 VERDE** (2.15/2.16 verdes), c/d/b2/v5 ok (v5 logout+lockout con el parche del menu de perfil), 0 excepciones/errores.
+- **BD final**: 9 quotes, 6 services, 0 login_attempts; app cerrada.
+
+**Resultado**: build16 instalada y verificada; boton solo en Cotizaciones.
