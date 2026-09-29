@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --color-primary: #1877E8; --color-dark: #081426; --color-bg: #0A182E; --color-text: #E6EDF7; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Chakra Petch', 'Segoe UI', system-ui, -apple-system, sans-serif; background-color: #0A182E; color: #E6EDF7; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Orbitron', sans-serif; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0A182E; }
+::-webkit-scrollbar-thumb { background: rgba(24, 119, 232, 0.35); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(24, 119, 232, 0.7); }
+::selection { background: #1877E8; color: #FFFFFF; }
+
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+	from { opacity: 0; transform: translateY(14px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+	from { opacity: 0; transform: scale(0.95) translateY(8px); }
+	to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes pageIn {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes barGrow {
+	from { transform: scaleY(0); }
+	to { transform: scaleY(1); }
+}
+
+@keyframes glowPulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(24, 119, 232, 0); }
+	50% { box-shadow: 0 0 24px -4px rgba(24, 119, 232, 0.45); }
+}
+
+@keyframes slideDown {
+	from { opacity: 0; transform: translateY(-8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rowIn {
+	from { opacity: 0; transform: translateY(6px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bannerIn {
+	from { opacity: 0; transform: translateY(-10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes navIndicator {
+	from { opacity: 0; transform: translateY(-50%) scaleY(0.35); }
+	to { opacity: 1; transform: translateY(-50%) scaleY(1); }
+}
+
+.animate-fade-in { animation: fadeIn 0.2s ease-out both; }
+.animate-fade-in-up { animation: fadeInUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-scale-in { animation: scaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-page-in { animation: pageIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.animate-dropdown { animation: slideDown 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-banner-in { animation: bannerIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.stagger-in > * { animation: rowIn 0.22s ease-out both; }
+.stagger-in > *:nth-child(2) { animation-delay: 0.025s; }
+.stagger-in > *:nth-child(3) { animation-delay: 0.05s; }
+.stagger-in > *:nth-child(4) { animation-delay: 0.075s; }
+.stagger-in > *:nth-child(5) { animation-delay: 0.1s; }
+.stagger-in > *:nth-child(6) { animation-delay: 0.125s; }
+.stagger-in > *:nth-child(n + 7) { animation-delay: 0.15s; }
+
+aside nav a { position: relative; }
+aside nav a[aria-current='page']::before {
+	content: '';
+	position: absolute;
+	left: -12px;
+	top: 50%;
+	width: 3px;
+	height: 55%;
+	transform: translateY(-50%);
+	background: #60A5FA;
+	border-radius: 0 3px 3px 0;
+	box-shadow: 0 0 12px rgba(24, 119, 232, 0.75);
+	animation: navIndicator 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hover-lift { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease; }
+.hover-lift:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.65), 0 16px 36px -18px rgba(24, 119, 232, 0.55);
+	border-color: rgba(24, 119, 232, 0.45);
+}
+
+.btn-press { transition: transform 0.12s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
+.btn-press:active:not(:disabled) { transform: scale(0.97); }
+
+.dashboard-table-scroll { scrollbar-gutter: stable; }
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-delay: 0ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+	.animate-fade-in,
+	.animate-fade-in-up,
+	.animate-scale-in,
+	.animate-page-in,
+	.animate-dropdown,
+	.animate-banner-in,
+	.stagger-in > *,
+	aside nav a[aria-current='page']::before {
+		animation-name: none !important;
+	}
+	.hover-lift:hover { transform: none; }
+	aside nav a[aria-current='page']::before { opacity: 1; }
+}

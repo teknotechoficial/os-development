@@ -1,0 +1,14 @@
+.card { @apply bg-white rounded-xl shadow-md p-6; }
+.btn-primary { @apply bg-primary text-white py-3 px-6 rounded-lg font-semibold hover:bg-dark transition; }
+.btn-outline { @apply border-2 border-primary text-primary py-2 px-6 rounded-lg font-semibold hover:bg-primary hover:text-white transition; }
+.form-input { @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition; }
+.header { @apply bg-dark text-white p-4 shadow-lg; }
+.main-content { @apply max-w-7xl mx-auto p-6; }
+.grid-3 { @apply grid grid-cols-1 md:grid-cols-3 gap-6; }
+.status-disponible { @apply bg-green-500 text-white px-2 py-1 rounded-full text-xs; }
+.status-ocupado { @apply bg-yellow-500 text-white px-2 py-1 rounded-full text-xs; }
+.status-no-disponible { @apply bg-red-500 text-white px-2 py-1 rounded-full text-xs; }
+.quote-card { @apply bg-white rounded-lg p-4 border hover:border-primary transition; }
+.product-option { @apply p-4 rounded-lg border-2 border-gray-200 transition text-center hover:border-primary; }
+.product-option.selected { @apply border-primary bg-blue-50; }
+.notification-unread { @apply bg-blue-50 border-l-4 border-primary; }
