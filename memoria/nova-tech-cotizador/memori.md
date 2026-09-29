@@ -444,3 +444,16 @@
 - **BD post-E2E**: 9 quotes intactas, 11 `login_attempts` borrados → CEO001 desbloqueado; app cerrada.
 
 **Resultado**: build12 (build11 + ola 2) instalado, E2E 5/5, sesión cerrada limpia.
+
+### [2026-09-29 09:32:00] - 📊 Tarea: Boton "Gestionar equipo" en header de Equipo + build13 + E2E 5/5
+
+**Que paso**: El usuario pidio poner un boton "Gestionar equipo" en el header de la pagina Equipo (junto a "Agregar nuevo miembro", el cuadro rojo de su captura) que al hacer clic muestre el banner de la imagen 1 (titulo + "Cambia sectores, restablece accesos o elimina miembros" + botones Agregar miembro / Gestionar equipo).
+
+**Detalles tecnicos**:
+- **TeamManager.tsx**: nuevo state `showManageBanner` (default false); PageHeader `actions` ahora es un flex con boton **secondary "Gestionar equipo"** (`aria-label="Mostrar gestion de equipo"`, toggle) + "Agregar nuevo miembro" (primary, solo super_admin); el **banner se movio** de su posicion antigua (debajo de desarrolladores) a **justo debajo del PageHeader** y solo se renderiza con `showManageBanner && (...)` + `animate-fade-in-up`; el boton del banner que abre el modal gano `aria-label="Abrir gestion de equipo"`. Boton header visible para todos los roles (como el banner original).
+- **Probes parcheados**: `verify-b13` 6.5 ahora valida header→banner (6.5) y banner→modal (6.5b); `verify-v5` equipo hace doble click (header + banner).
+- **Build13**: tsc 0, build ok, `BUILDER_EXIT=0`, `Unblock-File` preventivo, `INSTALL_EXIT=0`, ASAR 09/29 09:21.
+- **E2E sobre build13**: **5/5**, `verify-b13` **64/64 VERDE** (6.5 banner=true, 6.5b modal), v5 EQUIPO COLAPSADO gestionarBtn=true / ABIERTO selects=13, 0 excepciones/errores.
+- **BD post-E2E**: 9 quotes intactas, 11 login_attempts borrados, app cerrada.
+
+**Resultado**: Funcionalidad entregada y verificada en app instalada.
