@@ -58,7 +58,6 @@ const TeamManager: React.FC = () => {
 	const [formSuccess, setFormSuccess] = useState(false);
 	const [form, setForm] = useState({ name: '', code: '', email: '', role: 'vendedor', specialty: '' });
 	const [showManage, setShowManage] = useState(false);
-	const [showManageBanner, setShowManageBanner] = useState(false);
 	const [detailId, setDetailId] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -265,8 +264,8 @@ const TeamManager: React.FC = () => {
 					<div className="flex items-center gap-2">
 						<Button
 							variant="secondary"
-							aria-label="Mostrar gestión de equipo"
-							onClick={() => setShowManageBanner((v) => !v)}
+							aria-label="Abrir gestión de equipo"
+							onClick={() => setShowManage(true)}
 						>
 							<Settings className="h-4 w-4" />
 							Gestionar equipo
@@ -281,35 +280,6 @@ const TeamManager: React.FC = () => {
 				}
 			/>
 
-			{showManageBanner && (
-				<Card className={`p-6 ${CARD_CLASS} animate-fade-in-up`}>
-					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-						<div>
-							<h2 className={SECTION_TITLE + ' mb-1'}>Gestionar equipo</h2>
-							<p className="text-xs text-[#5B7295]">
-								Cambiá sectores, restablecé accesos o eliminá miembros
-							</p>
-						</div>
-						<div className="flex items-center gap-2">
-							{user?.role === 'super_admin' ? (
-								<Button variant="secondary" size="sm" onClick={() => setShowForm(!showForm)}>
-									<UserPlus className="h-3.5 w-3.5" />
-									Agregar miembro
-								</Button>
-							) : null}
-							<Button
-								variant="primary"
-								size="sm"
-								aria-label="Abrir gestión de equipo"
-								onClick={() => setShowManage(true)}
-							>
-								<Settings className="h-3.5 w-3.5" />
-								Gestionar equipo
-							</Button>
-						</div>
-					</div>
-				</Card>
-			)}
 			{formSuccess && (
 				<div className="flex items-center gap-2 bg-[#059669]/15 border border-[#059669]/40 text-[#34D399] rounded-xl p-3 text-sm font-medium">
 					<Check className="h-4 w-4 shrink-0" />

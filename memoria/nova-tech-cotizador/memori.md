@@ -457,3 +457,17 @@
 - **BD post-E2E**: 9 quotes intactas, 11 login_attempts borrados, app cerrada.
 
 **Resultado**: Funcionalidad entregada y verificada en app instalada.
+
+### [2026-09-29 09:55:00] - 🔥 Tarea: Boton header Equipo abre MODAL directo (build14) + E2E 5/5
+
+**Que paso**: Correccion del usuario con 2 capturas: al presionar el boton "Gestionar equipo" del header de Equipo tiene que aparecer directamente el MODAL de gestion (tabla MIEMBRO/CODIGO/SECTOR/ACCIONES con RESTABLECER ACCESO/ELIMINAR + AGREGAR MIEMBRO/CERRAR), NO el banner intermedio de build13.
+
+**Detalles tecnicos**:
+- **TeamManager.tsx**: se elimino el state `showManageBanner` y el bloque del banner condicional; el boton header ahora es `aria-label="Abrir gestion de equipo"` + `onClick={() => setShowManage(true)}` (abre el modal directo, visible para todos los roles).
+- **Probes parcheados**: `verify-b13` 6.5 = click header → modal (6.5b eliminado, ahora 63 checks); `verify-v5` sin el segundo click del banner.
+- **Build14**: tsc 0, build ok, `BUILDER_EXIT=0`.
+- **⚠️ Incidente instalacion**: `Unblock-File` + `/S` FALLO otra vez ("directiva de Control de aplicaciones") → **patron confirmado: falla el 1er intento, funciona el 2do** (loop de 3 intentos con Unblock-File; `INSTALL_EXIT=0`, ASAR 09:49:52). El primer E2E corrio sobre build13 (58/63 con 6.5-6.9 rojos por buscar el aria nuevo que no existia ahi) → **siempre verificar ASAR antes de confiar en un 5/5**.
+- **E2E sobre build14**: **5/5**, `verify-b13` **63/63 VERDE** (6.5 header→modal, 6.6-6.9 modal/tabla/Cerrar), v5 EQUIPO ABIERTO selects=13 restablecer/eliminar=true, 0 excepciones/errores.
+- **BD post-E2E**: 9 quotes, 6 services, 5 notifs, 0 tasks, 0 login_attempts (CEO001 desbloqueado); app cerrada.
+
+**Resultado**: build14 (boton header → modal directo, sin banner) instalada y verificada.
