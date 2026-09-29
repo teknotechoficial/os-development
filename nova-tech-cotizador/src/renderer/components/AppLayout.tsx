@@ -328,11 +328,11 @@ const AppLayout: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-3 rounded-2xl pl-1.5 pr-3 py-1.5 hover:bg-[#14294A] transition-all active:scale-[0.98]"
+                className="group flex items-center gap-3 rounded-2xl pl-1.5 pr-3 py-1.5 hover:bg-[#14294A] transition-all active:scale-[0.98]"
                 aria-label="Menú de usuario"
                 aria-expanded={profileOpen}
               >
-                <span className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1877E8] to-[#6366F1] flex items-center justify-center shrink-0 ring-2 ring-[#1877E8]/40 overflow-hidden">
+                <span className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1877E8] to-[#6366F1] flex items-center justify-center shrink-0 ring-2 ring-[#1877E8]/40 group-hover:ring-[#1877E8]/80 overflow-hidden avatar-pop">
                   {me?.avatar ? (
                     <img src={me.avatar} alt="" className="w-full h-full object-cover" />
                   ) : (

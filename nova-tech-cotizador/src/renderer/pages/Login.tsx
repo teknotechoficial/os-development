@@ -109,13 +109,13 @@ const Login: React.FC = () => {
           src={LOGO_URL}
           alt=""
           aria-hidden="true"
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-w-none opacity-[0.07] pointer-events-none select-none"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-w-none opacity-[0.07] pointer-events-none select-none animate-logo-float"
         />
 
         <div className="relative w-full h-full flex flex-col px-14 py-10">
           <div className="flex-1 flex flex-col justify-center gap-10 max-w-xl mx-auto w-full">
             <div className="flex items-center gap-6">
-              <img src={LOGO_URL} alt="TeknoTech" className="w-[136px] h-[136px] object-contain shrink-0 drop-shadow-[0_0_24px_rgba(24,119,232,0.35)]" />
+              <img src={LOGO_URL} alt="TeknoTech" className="w-[136px] h-[136px] object-contain shrink-0 drop-shadow-[0_0_24px_rgba(24,119,232,0.35)] animate-logo-float-soft" />
               <div>
                 <p className="font-display text-[42px] leading-none text-white tracking-[0.08em]">TEKNOTECH</p>
                 <p className="font-display text-[26px] text-[#1877E8] tracking-[0.35em] mt-2">SERVICES</p>

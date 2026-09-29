@@ -437,7 +437,7 @@ const Services: React.FC = () => {
 		<div>
 			<div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
 				<div>
-					<h1 className="font-display text-3xl font-bold uppercase tracking-[0.08em] text-white">
+					<h1 className="font-display text-3xl font-bold uppercase tracking-[0.08em] text-white animate-title-in">
 						Servicios
 					</h1>
 					<p className="text-[#8FA6C4] text-xs uppercase tracking-[0.15em] mt-1">

@@ -278,104 +278,106 @@ const TeamManager: React.FC = () => {
 			)}
 
 			{showForm && (
-				<Card className={`p-6 ${CARD_CLASS}`}>
-					<h2 className={SECTION_TITLE}>Nuevo miembro</h2>
-					<form onSubmit={handleSubmit} className="space-y-4">
-						{formError && (
-							<div className="flex items-center gap-2 bg-[#E11D48]/10 border border-[#E11D48]/30 text-[#FB7185] rounded-xl p-3 text-sm">
-								<AlertCircle className="h-4 w-4 shrink-0" />
-								{formError}
-							</div>
-						)}
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div>
-								<label htmlFor="member-name" className={LABEL_CLASS}>
-									Nombre
-								</label>
-								<input
-									id="member-name"
-									type="text"
-									value={form.name}
-									onChange={(e) => setForm({ ...form, name: e.target.value })}
-									className={INPUT_CLASS}
-									placeholder="Nombre completo"
-								/>
-							</div>
-							<div>
-								<label htmlFor="member-code" className={LABEL_CLASS}>
-									Código
-								</label>
-								<input
-									id="member-code"
-									type="text"
-									value={form.code}
-									onChange={(e) => setForm({ ...form, code: e.target.value })}
-									className={INPUT_CLASS}
-									placeholder="Ej: VEN006"
-								/>
-							</div>
-							<div>
-								<label htmlFor="member-email" className={LABEL_CLASS}>
-									Correo
-								</label>
-								<input
-									id="member-email"
-									type="email"
-									value={form.email}
-									onChange={(e) => setForm({ ...form, email: e.target.value })}
-									className={INPUT_CLASS}
-									placeholder="Ej: vendedor@teknotech.com"
-								/>
-							</div>
-							<div>
-								<label htmlFor="member-role" className={LABEL_CLASS}>
-									Rol
-								</label>
-								<select
-									id="member-role"
-									value={form.role}
-									onChange={(e) => setForm({ ...form, role: e.target.value })}
-									className={SELECT_CLASS}
-								>
-									<option value="vendedor">{ROLE_LABELS.vendedor}</option>
-									<option value="closer">{ROLE_LABELS.closer}</option>
-									<option value="desarrollador">{ROLE_LABELS.desarrollador}</option>
-									<option value="gerente">{ROLE_LABELS.gerente}</option>
-								</select>
-							</div>
-							{form.role === 'desarrollador' && (
-								<div className="sm:col-span-2">
-									<label htmlFor="member-specialty" className={LABEL_CLASS}>
-										Especialidad (opcional)
-									</label>
-									<input
-										id="member-specialty"
-										type="text"
-										value={form.specialty}
-										onChange={(e) => setForm({ ...form, specialty: e.target.value })}
-										className={INPUT_CLASS}
-										placeholder="Ej: Frontend / Backend"
-									/>
+				<div className="collapsible-open">
+					<Card className={`p-6 ${CARD_CLASS} min-h-0 overflow-hidden`}>
+						<h2 className={SECTION_TITLE}>Nuevo miembro</h2>
+						<form onSubmit={handleSubmit} className="space-y-4">
+							{formError && (
+								<div className="flex items-center gap-2 bg-[#E11D48]/10 border border-[#E11D48]/30 text-[#FB7185] rounded-xl p-3 text-sm">
+									<AlertCircle className="h-4 w-4 shrink-0" />
+									{formError}
 								</div>
 							)}
-						</div>
-						<div className="flex items-center gap-3">
-							<Button type="submit" variant="primary" disabled={submitting}>
-								{submitting ? 'GUARDANDO…' : 'AGREGAR MIEMBRO'}
-							</Button>
-							<Button
-								type="button"
-								variant="secondary"
-								onClick={() => {
-									setShowForm(false);
-									setFormError('');
-								}}
-							>
-								Cancelar
-							</Button>
-						</div>
-					</form>
-				</Card>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div>
+									<label htmlFor="member-name" className={LABEL_CLASS}>
+										Nombre
+									</label>
+									<input
+										id="member-name"
+										type="text"
+										value={form.name}
+										onChange={(e) => setForm({ ...form, name: e.target.value })}
+										className={INPUT_CLASS}
+										placeholder="Nombre completo"
+									/>
+								</div>
+								<div>
+									<label htmlFor="member-code" className={LABEL_CLASS}>
+										Código
+									</label>
+									<input
+										id="member-code"
+										type="text"
+										value={form.code}
+										onChange={(e) => setForm({ ...form, code: e.target.value })}
+										className={INPUT_CLASS}
+										placeholder="Ej: VEN006"
+									/>
+								</div>
+								<div>
+									<label htmlFor="member-email" className={LABEL_CLASS}>
+										Correo
+									</label>
+									<input
+										id="member-email"
+										type="email"
+										value={form.email}
+										onChange={(e) => setForm({ ...form, email: e.target.value })}
+										className={INPUT_CLASS}
+										placeholder="Ej: vendedor@teknotech.com"
+									/>
+								</div>
+								<div>
+									<label htmlFor="member-role" className={LABEL_CLASS}>
+										Rol
+									</label>
+									<select
+										id="member-role"
+										value={form.role}
+										onChange={(e) => setForm({ ...form, role: e.target.value })}
+										className={SELECT_CLASS}
+									>
+										<option value="vendedor">{ROLE_LABELS.vendedor}</option>
+										<option value="closer">{ROLE_LABELS.closer}</option>
+										<option value="desarrollador">{ROLE_LABELS.desarrollador}</option>
+										<option value="gerente">{ROLE_LABELS.gerente}</option>
+									</select>
+								</div>
+								{form.role === 'desarrollador' && (
+									<div className="sm:col-span-2">
+										<label htmlFor="member-specialty" className={LABEL_CLASS}>
+											Especialidad (opcional)
+										</label>
+										<input
+											id="member-specialty"
+											type="text"
+											value={form.specialty}
+											onChange={(e) => setForm({ ...form, specialty: e.target.value })}
+											className={INPUT_CLASS}
+											placeholder="Ej: Frontend / Backend"
+										/>
+									</div>
+								)}
+							</div>
+							<div className="flex items-center gap-3">
+								<Button type="submit" variant="primary" disabled={submitting}>
+									{submitting ? 'GUARDANDO…' : 'AGREGAR MIEMBRO'}
+								</Button>
+								<Button
+									type="button"
+									variant="secondary"
+									onClick={() => {
+										setShowForm(false);
+										setFormError('');
+									}}
+								>
+									Cancelar
+								</Button>
+							</div>
+						</form>
+					</Card>
+				</div>
 			)}
 
 			<Card className={`p-6 ${CARD_CLASS}`}>
@@ -412,9 +414,9 @@ const TeamManager: React.FC = () => {
 									return (
 										<tr
 											key={member.id}
-											className="border-b border-[#16294A] hover:bg-[#14294A] transition-colors"
+											className="group border-b border-[#16294A] hover:bg-[#14294A] transition-colors"
 										>
-											<td className="py-3 pr-4">
+											<td className="py-3 pr-4 row-shift">
 												<div className="flex items-center gap-3">
 													<span className="w-8 h-8 rounded-full bg-[#1877E8]/20 text-[#60A5FA] font-display text-xs flex items-center justify-center shrink-0">
 														{initials(member.name)}
@@ -598,9 +600,9 @@ const TeamManager: React.FC = () => {
 											return (
 												<tr
 													key={member.id}
-													className="border-b border-[#16294A] hover:bg-[#14294A] transition-colors"
+													className="group border-b border-[#16294A] hover:bg-[#14294A] transition-colors"
 												>
-													<td className="py-3 pr-4">
+													<td className="py-3 pr-4 row-shift">
 														<div className="flex items-center gap-3">
 															<span className="w-8 h-8 rounded-full bg-[#1877E8]/20 text-[#60A5FA] font-display text-xs flex items-center justify-center shrink-0">
 																{initials(member.name)}

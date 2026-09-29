@@ -3,7 +3,7 @@ import { AlertCircle, Building2, Check, KeyRound, Mail, Server } from 'lucide-re
 import { useAuth } from '@/renderer/store/auth';
 import { apiUrl } from '@/renderer/api';
 import { COMPANY, MINIMUM_MARGIN, ROLE_LABELS } from '@/shared/constants';
-import { Button, Card, PageHeader, Spinner } from '@/renderer/components/ui';
+import { Button, Card, PageHeader, Skeleton, Spinner } from '@/renderer/components/ui';
 
 const INPUT_CLASS =
 	'w-full px-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm';
@@ -416,8 +416,24 @@ const Settings: React.FC = () => {
 
 			{canManage ? (
 				loading ? (
-					<div className="flex justify-center py-16">
-						<Spinner />
+					<div className="py-6 space-y-6">
+						<div className="flex justify-center pb-2">
+							<Spinner />
+						</div>
+						<div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+							<div className="bg-[#10233E] border border-[#1C3557] rounded-2xl p-6 space-y-4">
+								<Skeleton className="h-4 w-1/3 rounded-md" />
+								<Skeleton className="h-10 w-full rounded-xl" />
+								<Skeleton className="h-10 w-full rounded-xl" />
+								<Skeleton className="h-10 w-2/3 rounded-xl" />
+							</div>
+							<div className="bg-[#10233E] border border-[#1C3557] rounded-2xl p-6 space-y-4">
+								<Skeleton className="h-4 w-1/2 rounded-md" />
+								<Skeleton className="h-10 w-full rounded-xl" />
+								<Skeleton className="h-10 w-full rounded-xl" />
+								<Skeleton className="h-10 w-1/2 rounded-xl" />
+							</div>
+						</div>
 					</div>
 				) : (
 					<form onSubmit={handleSave} className="space-y-6">

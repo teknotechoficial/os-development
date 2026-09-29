@@ -267,11 +267,11 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 												state: { from: isArchived ? '/historial' : '/cotizaciones' },
 											});
 										}}
-										className={`border-b border-[#16294A] hover:bg-[#14294A] text-[#D6E2F2] transition-colors ${
+										className={`group border-b border-[#16294A] hover:bg-[#14294A] text-[#D6E2F2] transition-colors ${
 											manage ? 'cursor-default' : 'cursor-pointer'
 										}`}
 									>
-										<td className="py-3 pr-4 text-xs text-[#5B7295]">
+										<td className="py-3 pr-4 text-xs text-[#5B7295] row-shift">
 											#{quote.id.slice(0, 8).toUpperCase()}
 										</td>
 										<td className="py-3 pr-4 font-medium text-white">{quote.clientName}</td>

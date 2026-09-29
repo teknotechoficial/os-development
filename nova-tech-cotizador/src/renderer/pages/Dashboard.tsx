@@ -6,7 +6,7 @@ import { useQuotes } from '@/renderer/store/quotes';
 import { apiUrl } from '@/renderer/api';
 import type { Quote } from '@/shared/types';
 import { formatCurrency } from '@/shared/validators';
-import { Button, Card, EmptyState, Spinner, StatCard } from '@/renderer/components/ui';
+import { Button, Card, EmptyState, Skeleton, Spinner, StatCard } from '@/renderer/components/ui';
 import StatusBadge from '@/renderer/components/StatusBadge';
 
 const MONTH_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -174,7 +174,7 @@ const Dashboard: React.FC = () => {
 		<div className="max-w-7xl mx-auto">
 			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
 				<div>
-					<h1 className="font-display text-3xl font-bold uppercase tracking-wide text-white">
+					<h1 className="font-display text-3xl font-bold uppercase tracking-wide text-white animate-title-in">
 						CÓMO ANDAS {user?.name ? user.name.split(' ')[0].toUpperCase() : ''}
 					</h1>
 					<p className="text-xs uppercase tracking-[0.25em] text-[#8FA6C4] mt-2">
@@ -259,13 +259,31 @@ const Dashboard: React.FC = () => {
 								key={task.id}
 								className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-[#14294A] group transition-colors"
 							>
-								<input
-									type="checkbox"
-									checked={task.done}
-									onChange={() => toggleTask(task)}
-									aria-label={`Marcar tarea ${task.title}`}
-									className="w-4 h-4 accent-[#1877E8] cursor-pointer shrink-0"
-								/>
+								<span className="relative inline-flex w-4 h-4 shrink-0">
+									<input
+										type="checkbox"
+										checked={task.done}
+										onChange={() => toggleTask(task)}
+										aria-label={`Marcar tarea ${task.title}`}
+										className="task-check"
+									/>
+									<svg
+										viewBox="0 0 16 16"
+										className="task-check-mark absolute inset-0 w-4 h-4 pointer-events-none"
+										aria-hidden="true"
+										focusable="false"
+									>
+										<path
+											d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
+											fill="none"
+											stroke="#FFFFFF"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											pathLength={100}
+										/>
+									</svg>
+								</span>
 								<span
 									className={`flex-1 text-sm min-w-0 truncate transition-all duration-200 ${
 										task.done
@@ -303,8 +321,14 @@ const Dashboard: React.FC = () => {
 						</Link>
 					</div>
 					{loading ? (
-						<div className="flex justify-center py-12">
-							<Spinner />
+						<div className="py-4 space-y-3">
+							<div className="flex justify-center pb-2">
+								<Spinner />
+							</div>
+							<Skeleton className="h-4 w-full rounded-md" />
+							<Skeleton className="h-4 w-11/12 rounded-md" />
+							<Skeleton className="h-4 w-4/5 rounded-md" />
+							<Skeleton className="h-4 w-2/3 rounded-md" />
 						</div>
 					) : recentQuotes.length === 0 ? (
 						<EmptyState
@@ -336,9 +360,9 @@ const Dashboard: React.FC = () => {
 										<tr
 											key={quote.id}
 											onClick={() => navigate(`/cotizacion/${quote.id}`, { state: { from: '/dashboard' } })}
-											className="border-b border-[#16294A] text-sm text-[#D6E2F2] hover:bg-[#14294A] transition-colors cursor-pointer"
+											className="group border-b border-[#16294A] text-sm text-[#D6E2F2] hover:bg-[#14294A] transition-colors cursor-pointer"
 										>
-											<td className="py-4 w-9">#{String(idx + 1).padStart(3, '0')}</td>
+											<td className="py-4 w-9 row-shift">#{String(idx + 1).padStart(3, '0')}</td>
 											<td className="py-4 pr-2 min-w-0">
 												<p className="truncate">{quote.clientName}</p>
 												<p className="text-[11px] text-[#5B7295] truncate">
@@ -374,8 +398,12 @@ const Dashboard: React.FC = () => {
 						</select>
 					</div>
 					{loading ? (
-						<div className="flex justify-center py-12">
-							<Spinner />
+						<div className="py-4 space-y-3">
+							<div className="flex justify-center pb-2">
+								<Spinner />
+							</div>
+							<Skeleton className="h-4 w-1/3 rounded-md" />
+							<Skeleton className="h-[320px] w-full rounded-xl" />
 						</div>
 					) : maxTotal <= 0 ? (
 						<EmptyState

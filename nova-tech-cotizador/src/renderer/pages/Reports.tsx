@@ -186,7 +186,7 @@ const Reports: React.FC = () => {
 		<div className="max-w-7xl mx-auto">
 			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
 				<div>
-					<h1 className="font-display text-3xl font-bold uppercase tracking-wide text-white">REPORTES</h1>
+					<h1 className="font-display text-3xl font-bold uppercase tracking-wide text-white animate-title-in">REPORTES</h1>
 					<p className="text-xs uppercase tracking-[0.25em] text-[#8FA6C4] mt-2">ANÁLISIS DE TU ACTIVIDAD</p>
 				</div>
 				<div className="flex items-center gap-3">

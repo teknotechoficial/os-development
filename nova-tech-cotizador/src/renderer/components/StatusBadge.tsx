@@ -39,7 +39,7 @@ const StatusBadge: React.FC<Props> = ({ quote, status }) => {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${config.pill}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] animate-badge-pop ${config.pill}`}
     >
       <span className="rounded-full bg-current" style={{ width: 6, height: 6 }} />
       {config.label}

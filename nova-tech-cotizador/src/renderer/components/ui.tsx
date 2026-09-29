@@ -10,7 +10,7 @@ const BUTTON_BASE =
   'inline-flex items-center justify-center gap-2 rounded-xl font-semibold uppercase tracking-wide transition-all duration-150 btn-press focus:outline-none focus:ring-2 focus:ring-[#1877E8]/40 disabled:opacity-50 disabled:cursor-not-allowed';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-[#1877E8] text-white hover:bg-[#0F65CC] shadow-lg shadow-blue-900/30',
+  primary: 'bg-[#1877E8] text-white hover:bg-[#0F65CC] shadow-lg shadow-blue-900/30 btn-sweep',
   secondary: 'bg-transparent border border-[#2E4A75] text-[#B8C9E0] hover:bg-[#14294A]',
   danger: 'bg-[#E11D48] text-white hover:bg-[#BE123C]',
   ghost: 'text-[#8FA6C4] hover:text-white hover:bg-[#14294A]',
@@ -59,7 +59,7 @@ export interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, actions }) => (
   <div className="flex justify-between items-center mb-6">
     <div>
-      <h1 className="font-display text-xl font-bold uppercase tracking-[0.08em] text-white">{title}</h1>
+      <h1 className="font-display text-xl font-bold uppercase tracking-[0.08em] text-white animate-title-in">{title}</h1>
       {subtitle ? (
         <p className="text-[#8FA6C4] text-xs uppercase tracking-[0.15em] mt-1">{subtitle}</p>
       ) : null}
@@ -69,6 +69,42 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, actions
 );
 
 type StatTone = 'blue' | 'green' | 'amber' | 'red' | 'purple';
+
+const COUNT_PATTERN = /^([^0-9]*)(\d{1,3}(?:[^\d]\d{3})+|\d+)([^0-9]*)$/;
+
+interface CountValue {
+  target: number;
+  render: (amount: number) => string;
+}
+
+const parseCountValue = (value: string): CountValue | null => {
+  const match = COUNT_PATTERN.exec(value);
+  if (!match) return null;
+  const prefix = match[1];
+  const digits = match[2];
+  const suffix = match[3];
+  if (prefix.includes('-') || suffix.includes('-')) return null;
+  const separator = digits.match(/[^\d]/)?.[0];
+  const target = Number(digits.replace(/[^\d]/g, ''));
+  if (!Number.isFinite(target) || target <= 0) return null;
+  return {
+    target,
+    render: (amount: number) => {
+      const plain = String(Math.round(amount));
+      const grouped = separator
+        ? plain.replace(/\B(?=(\d{3})+(?!\d))/g, separator)
+        : plain;
+      return `${prefix}${grouped}${suffix}`;
+    },
+  };
+};
+
+const prefersReducedMotion = (): boolean =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
+const COUNT_DURATION = 700;
 
 export interface StatCardProps {
   label: string;
@@ -80,12 +116,39 @@ export interface StatCardProps {
 
 export const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, trend }) => {
   const negative = !!trend && trend.includes('-');
+  const parsed = React.useMemo(() => parseCountValue(value), [value]);
+  const [display, setDisplay] = React.useState<string>(() => {
+    const initial = parseCountValue(value);
+    return initial && !prefersReducedMotion() ? initial.render(0) : value;
+  });
+
+  React.useEffect(() => {
+    if (!parsed || prefersReducedMotion()) {
+      setDisplay(value);
+      return;
+    }
+    let frame = 0;
+    const startedAt = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / COUNT_DURATION);
+      if (progress >= 1) {
+        setDisplay(value);
+        return;
+      }
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(parsed.render(parsed.target * eased));
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [parsed, value]);
+
   return (
     <div className="bg-[#0C1E36] border border-[#1C3557] rounded-2xl p-5 hover-lift animate-fade-in-up">
       <span className="w-10 h-10 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center">
         <Icon className="w-5 h-5" />
       </span>
-      <p className="font-display text-3xl font-bold text-white mt-4">{value}</p>
+      <p className="font-display text-3xl font-bold text-white mt-4 tabular-nums">{display}</p>
       <p className="text-[11px] uppercase tracking-[0.18em] text-[#8FA6C4] mt-1">{label}</p>
       {trend ? (
         <p
@@ -123,4 +186,12 @@ export interface SpinnerProps {
 
 export const Spinner: React.FC<SpinnerProps> = ({ className = '' }) => (
   <div className={`animate-spin rounded-full h-5 w-5 border-2 border-[#1877E8] border-t-transparent ${className}`} />
+);
+
+export interface SkeletonProps {
+  className?: string;
+}
+
+export const Skeleton: React.FC<SkeletonProps> = ({ className = '' }) => (
+  <div className={`skeleton ${className}`} />
 );
