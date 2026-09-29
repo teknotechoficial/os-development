@@ -415,3 +415,19 @@
 - **`author` en `package.json`**: `"author": "TeknoTech Services"` → elimina el warning `author is missed in the package.json` de electron-builder (surtirá en el próximo build; el build11 instalado no lo lleva).
 - **CHANGELOG.md creado** (estilo Keep a Changelog): 0.7.0 dark total → 0.8.0 login 2 métodos → 0.9.0 lote 7 → 1.0.0 lote 13 + animaciones + E2E 5/5.
 - **Sigue a la espera del usuario**: correos/contraseñas reales del equipo, Gmail App Password SMTP, credencial CEO definitiva, datos reales de servicios.
+
+### [2026-09-28 21:12:13] - 📝 Nota: Cierre de sesión completa 2026-09-28 (consolidado)
+
+**Qué pasó**: Archivado consolidado de la sesión de cierre del lote 13 y pendientes.
+
+**Contexto**: Sesión de un solo día que cerró el lote 13 completo, resolvió la anomalía de BD y agotó todos los pendientes accionables sin datos del usuario.
+
+**Detalles técnicos**:
+- 📊 **Tarea**: Lote 13 + animaciones cerrado — E2E **5/5** (`verify-b13` **63/63**), build11 instalado (`BUILDER_EXIT=0`, 80.9MB), runner `RUNNER_EXIT=0`. Registrado en entrada previa (push `dbc94a2`).
+- 🔧 **Solución**: anomalía BD resuelta con `npm run db:seed` seguro (6 servicios BD == catálogo) → 9 quotes = 8 demos + jorge. Registrado (push `ad0d192`).
+- 📊 **Tarea**: pendientes menores agotados — fuente versionada 79 archivos, `author` en package.json, CHANGELOG.md. Registrado (push `bfc2f92`/`624d461`).
+- 🧠 **Decisión**: cambio de convención git — el repo pasa de trackear **solo `memoria/`** a incluir también el **código fuente completo de `nova-tech-cotizador/`** (antes 0 archivos trackeados).
+- 📚 **Aprendizaje**: robustez E2E/CDP — (1) FATAL `Runtime.enable` tras reinicio fresco → esperar asentamiento/reintentar; (2) login falla si el server Express aún no levanta → health-wait previo; (3) checks async necesitan polling, no waits fijos; (4) `Page.captureScreenshot` puede superar 45s con el sistema cargado → hacer shots **no-fatales** con timeout 120s; (5) runner con reintento ante FATAL (3 intentos).
+- ⚙️ **Configuración**: `.gitignore` del proyecto ampliado (`release/`, `*.log.*`); excluidos `node_modules/`, `dist/`, `.env`, logs y binarios del commit.
+
+**Resultado**: Nota registrada. Solo quedan pendientes que requieren datos del usuario (correos reales, Gmail App Password, credencial CEO definitiva, datos de servicios).
