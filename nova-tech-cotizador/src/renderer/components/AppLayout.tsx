@@ -33,20 +33,20 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Inicio', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Cotizaciones', icon: FileText, path: '/cotizaciones' },
   {
     label: 'Nueva Cotización',
     icon: FilePlus2,
     path: '/nueva-cotizacion',
     roles: ['vendedor', 'closer', 'gerente', 'super_admin'],
   },
-  { label: 'Equipo', icon: Users, path: '/equipo', roles: ['gerente', 'super_admin'] },
-  { label: 'Cotizaciones', icon: FileText, path: '/cotizaciones' },
   { label: 'Servicios', icon: Boxes, path: '/servicios' },
+  { label: 'Equipo', icon: Users, path: '/equipo', roles: ['gerente', 'super_admin'] },
   { label: 'Historial', icon: History, path: '/historial' },
-  { label: 'Reportes', icon: BarChart3, path: '/reportes' },
 ];
 
 const AJUSTES_ITEM: NavItem = { label: 'Ajustes', icon: Settings, path: '/configuracion' };
+const REPORTES_ITEM: NavItem = { label: 'Reportes', icon: BarChart3, path: '/reportes' };
 
 const NAV_EXTRA_ITEMS: NavItem[] = [
   { label: 'Mi Trabajo', icon: Laptop, path: '/mi-trabajo', roles: ['desarrollador'] },
@@ -243,6 +243,7 @@ const AppLayout: React.FC = () => {
           {visibleItems.map(renderNavItem)}
           {visibleExtraItems.map(renderNavItem)}
           {renderNavItem(AJUSTES_ITEM)}
+          {renderNavItem(REPORTES_ITEM)}
         </nav>
 
         <div className="border-t border-[#16294A] px-4 py-4">

@@ -23,6 +23,7 @@ import {
 	X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/renderer/store/auth';
 import { apiUrl } from '@/renderer/api';
 import { formatCurrency } from '@/shared/validators';
@@ -213,7 +214,7 @@ const ServiceEditor: React.FC<{
 		}
 	};
 
-	return (
+	return createPortal(
 		<div
 			className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4 animate-fade-in"
 			onClick={onClose}
@@ -389,13 +390,14 @@ const ServiceEditor: React.FC<{
 								Eliminar
 							</Button>
 						) : null}
-						<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
-							Cancelar
-						</Button>
-					</div>
-				</form>
-			</div>
+					<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
+						Cancelar
+					</Button>
+				</div>
+			</form>
 		</div>
+	</div>,
+		document.body
 	);
 };
 

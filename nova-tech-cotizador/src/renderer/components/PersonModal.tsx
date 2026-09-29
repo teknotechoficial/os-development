@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, Mail, CalendarDays, X, User as UserIcon, Briefcase, Activity } from 'lucide-react';
 import { useTeam } from '../store/team';
@@ -78,7 +79,7 @@ const PersonModal: React.FC<PersonModalProps> = ({ memberId, fallbackName, onClo
 	const roleLabel = member ? ROLE_LABELS[member.role] || member.role : '';
 	const avail = availability ? AVAILABILITY_STYLES[availability.status] : undefined;
 
-	return (
+	return createPortal(
 		<div
 			className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6 animate-fade-in"
 			onClick={onClose}
@@ -224,7 +225,8 @@ const PersonModal: React.FC<PersonModalProps> = ({ memberId, fallbackName, onClo
 					<p className="text-sm text-[#5B7295] p-6">Sin actividad para mostrar.</p>
 				)}
 			</div>
-		</div>
+		</div>,
+		document.body
 	);
 };
 

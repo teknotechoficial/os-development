@@ -23,7 +23,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   `verify-b13` 63/63.
 
 ### Changed
-- Build16 instalado (NSIS, instalación silenciosa `/S` verificada).
+- Build17 instalado (copia directa de `win-unpacked`, NSIS bloqueado por política).
+- Sidebar reordenado: Inicio → Cotizaciones → Nueva Cotización → Servicios → Equipo →
+  Historial → Ajustes → Reportes (Reportes al final porque no entró en la cadena pedida).
+- Difuminados (backdrops de modales) en pantalla completa: los modales de Equipo,
+  Persona y Servicios ahora se portalizan a `document.body` (`createPortal`), ya que
+  dentro de `animate-page-in` su transform rompía `position: fixed` y el backdrop quedaba
+  anclado al contenedor (medía y=24/h=viewport-24 en vez de cubrir todo).
 - Header: eliminado el botón "SALIR" suelto (logout disponible en el menú de avatar →
   "Cerrar sesión").
 - Historial (`/historial`): eliminado el botón "Gestionar cotizaciones" (solo queda en

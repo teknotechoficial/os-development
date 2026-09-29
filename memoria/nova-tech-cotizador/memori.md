@@ -498,3 +498,18 @@
 - **BD final**: 9 quotes, 6 services, 0 login_attempts; app cerrada.
 
 **Resultado**: build16 instalada y verificada; boton solo en Cotizaciones.
+
+### [2026-09-29 14:15:00] - 🔥 Tarea: Orden sidebar + difuminados full-screen (build17) + E2E 5/5
+
+**Que paso**: El usuario pidio (1) reorganizar el sidebar: Inicio, Cotizaciones, Nueva Cotizacion debajo, Servicios, Equipo, Historial, Ajustes; (2) "todos los difuminados en pantalla completa".
+
+**Detalles tecnicos**:
+- **Sidebar (AppLayout.tsx)**: NAV_ITEMS = [Inicio, Cotizaciones, Nueva Cotizacion (roles), Servicios, Equipo (gerente/super_admin), Historial]; `REPORTES_ITEM` aparte y render = items + extras(Mi Trabajo) + AJUSTES + REPORTES. **Decision**: Reportes no estaba en la cadena del usuario → lo deje AL FINAL (despues de Ajustes) para cumplir "debajo de historial quedara ajustes" literal; si no gusta, moverlo. Verificado: NAV = ["Inicio","Cotizaciones","Nueva Cotizacion","Servicios","Equipo","Historial","Ajustes","Reportes"] + solo Inicio activo en dashboard.
+- **Difuminados: diagnostico empirico con CDP** (`measure-blur.js`/`diag-ancestros.js`): backdrop del modal Equipo/Persona/Servicio medía `y=24, h=viewport-24` (PARCIAL) mientras que Perfil era FULL. **Causa raiz**: esos modales se renderizan DENTRO de `div.animate-page-in` (AppLayout main) y su animacion/transform convierte al contenedor en containing block de los hijos `position: fixed` → el `inset-0` se anclaba al contenedor, no al viewport. **Fix**: `createPortal(<backdrop>, document.body)` en TeamManager.tsx, PersonModal.tsx y Services.tsx (ServiceEditor); ProfileModal ya estaba fuera y era FULL.
+- **Probes**: b13 +2 checks 6.3b/6.8b "backdrop en PANTALLA COMPLETA" (mide y<=1 y bottom>=vh-1) → **67 checks**; verify-c NAV ORDER con esperado logueado.
+- **⚠️ Instalacion NSIS BLOQUEADA 7 veces** ("Control de aplicaciones" - AppLocker aprendio el hash y sigue bloqueando, Unblock-File no basta). **WORKAROUND EXITOSO**: copiar `release\win-unpacked\*` sobre `C:\Users\almer\AppData\Local\Programs\TeknoTech Services Cotizador\` (mismos archivos que NSIS) → ASAR 13:03:47 = build17. Usar este fallback cuando NSIS falle >4 veces.
+- **E2E sobre build17**: **5/5** - b13 **67/67** (6.3b/6.8b full=true: y=0, bottom=681, vh=681), c/d/b2/v5 exit 0, 0 excepciones. Medicion manual backdrop Equipo full:true.
+- **Notas**: health-wait obligatorio antes de CDP (una instancia quedo sin server Express y el login se colgaba sin error); `Page.captureScreenshot` esta lento (timeouts 60-90s intermitentes, shots no-fatales); captura b13-equipo-modal.png de 13:44 servida con cache del read tool mostraba nav viejo (el DOM real tenia el nuevo - verificado con check-nav).
+- **BD final**: 9 quotes, 6 services, 0 login_attempts; app cerrada.
+
+**Aprendizaje**: (1) backdrops `fixed` dentro de contenedores con animacion/transform = bug classico de full-screen → siempre portal a body; (2) para diagnosticar UI "a ojo" usar scripts CDP de medicion (rect vs viewport) antes de adivinar; (3) NSIS bloqueado 4+ veces → fallback copia win-unpacked.

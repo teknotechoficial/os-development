@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, BadgeDollarSign, Check, Code2, Crown, Lock, RotateCcw, Settings, ShieldCheck, Target, Trash2, UserPlus, Users } from 'lucide-react';
@@ -525,7 +526,7 @@ const TeamManager: React.FC = () => {
 				)}
 			</Card>
 
-			{showManage ? (
+			{showManage ? createPortal(
 				<div
 					className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 lg:p-8 animate-fade-in"
 					onClick={() => setShowManage(false)}
@@ -656,11 +657,12 @@ const TeamManager: React.FC = () => {
 											);
 										})}
 									</tbody>
-								</table>
-							</div>
-						)}
-					</div>
+							</table>
+						</div>
+					)}
 				</div>
+			</div>,
+			document.body
 			) : null}
 
 			{detailId ? <PersonModal memberId={detailId} onClose={() => setDetailId(null)} /> : null}
