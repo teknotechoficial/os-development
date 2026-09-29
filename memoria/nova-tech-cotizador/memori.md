@@ -471,3 +471,17 @@
 - **BD post-E2E**: 9 quotes, 6 services, 5 notifs, 0 tasks, 0 login_attempts (CEO001 desbloqueado); app cerrada.
 
 **Resultado**: build14 (boton header → modal directo, sin banner) instalada y verificada.
+
+### [2026-09-29 11:05:00] - 🔥 Tarea: Eliminar boton "SALIR" del header (build15) + E2E 5/5
+
+**Que paso**: El usuario pidio eliminar el boton "SALIR" suelto del header (icono LogOut + texto, junto al avatar).
+
+**Detalles tecnicos**:
+- **AppLayout.tsx**: borrado el `<Button variant="ghost" size="sm" onClick={handleLogout}>Salir</Button>` (lineas ~396-399) y el import `{ Button }` de `./ui` (quedaba sin uso). `LogOut` se mantiene (dropdown "Cerrar sesión"). Logout sigue disponible: menú de avatar → "Cerrar sesión".
+- **⚠️ E2E impactado**: `verify-v5` usaba el boton SALIR para logout → tras el cambio `AFTER LOGOUT` seguia en `#/dashboard` y lockout no corria (pero exit 0 porque v5 solo loguea). **Parche**: `logout()` ahora abre `header button[aria-label="Menú de usuario"]` si "Cerrar sesión" no esta visible y luego clickea "Cerrar sesión".
+- **Build15**: tsc 0, build ok, `BUILDER_EXIT=0`. Instalacion: intentos 1-2 BLOQUEADOS ("Control de aplicaciones"), intento 3 OK (ASAR 10:57:38) — **patron: a veces falla 1-2 veces, siempre reintentar loop x3-4**.
+- **E2E run 1 (5/5)**: b13 63/63, pero v5 con logout roto (LOCKOUT OK: false) → parcheo de logout.
+- **E2E run 2 (5/5)**: definitivo — b13 63/63, c/d/b2 ok, v5 `AFTER LOGOUT: #/` + `LOCKOUT OK: true`, 0 excepciones/errores. Header sin SALIR visible en `top` (sale "CÓMO ANDAS SEBASTIAN").
+- **BD final**: 9 quotes, 6 services, 5 notifs, 0 login_attempts; app cerrada.
+
+**Aprendizaje**: al eliminar elementos del header/ UI, buscar en TODOS los probes referencias (grep `Salir|salir`); v5 solo loguea asi que no falla, pero invalida silenciosamente checks downstream (logout/lockout).

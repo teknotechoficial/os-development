@@ -20,7 +20,6 @@ import { useAuth } from '../store/auth';
 import { useQuotes } from '../store/quotes';
 import { useTeam } from '../store/team';
 import { apiUrl } from '../api';
-import { Button } from './ui';
 import PersonModal from './PersonModal';
 import ProfileModal from './ProfileModal';
 import logoUrl from '../../../assets/logo-white.png';
@@ -392,11 +391,6 @@ const AppLayout: React.FC = () => {
                 </div>
               ) : null}
             </div>
-
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut size={16} />
-              Salir
-            </Button>
           </div>
         </header>
 

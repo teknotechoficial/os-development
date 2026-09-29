@@ -23,7 +23,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   `verify-b13` 63/63.
 
 ### Changed
-- Build14 instalado (NSIS, instalación silenciosa `/S` verificada).
+- Build15 instalado (NSIS, instalación silenciosa `/S` verificada).
+- Header: eliminado el botón "SALIR" suelto (logout disponible en el menú de avatar →
+  "Cerrar sesión").
 - `author` añadido a `package.json` (elimina warning de electron-builder).
 
 ### Fixed
