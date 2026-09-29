@@ -431,3 +431,16 @@
 - ⚙️ **Configuración**: `.gitignore` del proyecto ampliado (`release/`, `*.log.*`); excluidos `node_modules/`, `dist/`, `.env`, logs y binarios del commit.
 
 **Resultado**: Nota registrada. Solo quedan pendientes que requieren datos del usuario (correos reales, Gmail App Password, credencial CEO definitiva, datos de servicios).
+
+### [2026-09-28 23:07:08] - 📊 Tarea: Segunda ola de animaciones + build12 + E2E 5/5
+
+**Qué pasó**: El usuario pidió "más animaciones, la app está muy tiesa" → segunda ola implementada, build12 instalado y verificado.
+
+**Detalles técnicos**:
+- **Ola 2 (11 archivos, +356/−129)**: count-up en StatCards (≤800ms, tabular-nums, texto final idéntico), check animado de checkbox de tareas, glow/gradient sweep en botones primarios, modal con spring (scale 0.96→1 ≤350ms), collapsibles con altura animada (grid-rows 0fr→1fr), shimmer en skeletons, anillo hover en avatar del header, filas de tabla con hover translate-x sutil, pop-in de StatusBadge, título h1 con entrada sutil. `prefers-reduced-motion` extendido; sin dependencias nuevas; reglas E2E respetadas (sin cambios de aria/ids/estructura, ≤400ms, estado final natural).
+- **Build12**: primer intento `BUILDER_EXIT=1` con `spawn UNKNOWN` en `execWine`/NSIS → **transitorio** (reintento inmediato `BUILDER_EXIT=0`). Instalador 80.9MB (22:49).
+- **⚠️ Incidente instalación**: `Start-Process /S` bloqueado ("directiva de Control de aplicaciones") → **solución: `Unblock-File` en el setup** + reintento → `INSTALL_EXIT=0`, ASAR 22:49 = build12. *Nota: un 5/5 previo había corrido sobre build11 por este bloqueo — repetido tras instalar bien.*
+- **E2E final sobre build12**: **5/5**, `verify-b13` **63/63**, 0 excepciones / 0 console errors, LOGIN NO-SCROLL 681/681, DASH FIT ok (animaciones sin overflow).
+- **BD post-E2E**: 9 quotes intactas, 11 `login_attempts` borrados → CEO001 desbloqueado; app cerrada.
+
+**Resultado**: build12 (build11 + ola 2) instalado, E2E 5/5, sesión cerrada limpia.
