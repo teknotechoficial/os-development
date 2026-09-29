@@ -408,3 +408,10 @@
 - **BD anomalía (REPORTADA, sin tocar)**: quotes demo 9 → **7** (faltan `demo-quote-03` Taller Mecánico y `demo-quote-08` Startup FinTech); **jorge recreada con id nuevo** `9e904f1a-ba57-49f4-82ff-076d396808e7` (el `2070f467-2e43-48b8-b033-f9b4b747a1da` ya no existe; jorge conservada). Posible causa: `database/seed.ts:153` (`DELETE ... WHERE id LIKE 'demo-%'` + reinsert) o seed parcial de otro agente.
 - **Limpieza final**: ZZ E2E, Svc E2E B13, Servicio Prueba E2E, tareas E2E y 17 `login_attempts` borrados → CEO001 desbloqueado; quotes = 6 demos + jorge.
 - **Anomalía RESUELTA (2026-09-28)**: `npm run db:seed` ejecutado tras verificar que los 6 servicios BD == catálogo seed (re-seed seguro). Resultado: **9 quotes = 8 demos + jorge** (demo-03 Taller Mecánico López y demo-quote-08 Startup FinTech Uno restauradas), 5 notificaciones demo, servicios intactos, CEO001 `super_admin` activo, 0 intentos de login. Causa confirmada: seed parcial previo (líneas 152-153). jorge conserva el id nuevo `9e904f1a-ba57-49f4-82ff-076d396808e7`.
+
+### [2026-09-28 20:40:00] - 📎 Cierre de pendientes menores: fuente versionada, author, CHANGELOG
+
+- **Código fuente versionado por 1ª vez**: `nova-tech-cotizador/` commiteado (79 archivos, 17024 líneas) en el repo — antes tenía **0 archivos trackeados**. `.gitignore` del proyecto ampliado con `release/` y `*.log.*`; excluidos `node_modules/`, `dist/`, `.env` y logs. Commit `bfc2f92`.
+- **`author` en `package.json`**: `"author": "TeknoTech Services"` → elimina el warning `author is missed in the package.json` de electron-builder (surtirá en el próximo build; el build11 instalado no lo lleva).
+- **CHANGELOG.md creado** (estilo Keep a Changelog): 0.7.0 dark total → 0.8.0 login 2 métodos → 0.9.0 lote 7 → 1.0.0 lote 13 + animaciones + E2E 5/5.
+- **Sigue a la espera del usuario**: correos/contraseñas reales del equipo, Gmail App Password SMTP, credencial CEO definitiva, datos reales de servicios.
