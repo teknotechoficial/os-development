@@ -14,6 +14,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 - Animaciones: transición de páginas, hover-lift en tarjetas, stagger-in en tablas/listas,
   entrada de dropdowns, indicador activo del sidebar, banner de Settings, tachado animado
   de tareas; `prefers-reduced-motion` respetado, sin dependencias nuevas.
+- Segunda ola de animaciones: count-up en StatCards, check animado de tareas, glow en
+  botones primarios, modales con spring, colapsables con altura animada, shimmer en
+  skeletons, pop-in de badges, hover en filas de tabla.
+- Equipo: botón "Gestionar equipo" en el header (junto a "Agregar nuevo miembro") que
+  despliega el banner con acceso a "Agregar miembro" y al modal de gestión.
 - E2E: suite de 5 probes (`verify-b13/c/d/b2/v5`) sobre la app instalada → **5/5 verde**,
   `verify-b13` 63/63.
 
