@@ -11,6 +11,22 @@ import StatusBadge from '@/renderer/components/StatusBadge';
 
 const MONTH_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const BAR_COLOR = '#1877E8';
+const RECENT_PREFS_KEY = 'nt_prefs';
+const RECENT_LIMIT_DEFAULT = 10;
+const RECENT_LIMIT_MAX = 50;
+
+const readRecentLimit = (): number => {
+	try {
+		const raw = window.localStorage.getItem(RECENT_PREFS_KEY);
+		if (!raw) return RECENT_LIMIT_DEFAULT;
+		const parsed = JSON.parse(raw) as { recentLimit?: unknown } | null;
+		const value = Number(parsed?.recentLimit);
+		if (!Number.isFinite(value) || value <= 0) return RECENT_LIMIT_DEFAULT;
+		return Math.min(Math.floor(value), RECENT_LIMIT_MAX);
+	} catch {
+		return RECENT_LIMIT_DEFAULT;
+	}
+};
 
 interface Task {
 	id: string;
@@ -145,9 +161,11 @@ const Dashboard: React.FC = () => {
 		.filter((q) => monthKeyOf(q.createdAt) === prevMonthKey)
 		.reduce((acc, q) => acc + q.finalPrice, 0);
 
+	const recentLimit = useMemo(() => readRecentLimit(), []);
+
 	const recentQuotes = [...quotes]
 		.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-		.slice(0, 5);
+		.slice(0, recentLimit);
 
 	const salesByMonth = useMemo(() => {
 		const buckets: { key: string; label: string; total: number }[] = [];
@@ -309,7 +327,7 @@ const Dashboard: React.FC = () => {
 
 			<div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
 			<Card className="p-6 xl:col-span-2">
-					<div className="flex items-center justify-between mb-4 gap-3">
+					<div className="flex items-center justify-between mb-5 gap-4">
 						<h2 className="font-display text-sm uppercase tracking-[0.15em] text-white whitespace-nowrap">
 							COTIZACIONES RECIENTES
 						</h2>
@@ -345,14 +363,16 @@ const Dashboard: React.FC = () => {
 							}
 						/>
 					) : (
-						<div className="max-h-[420px] overflow-y-auto overflow-x-hidden dashboard-table-scroll -mx-2 px-2">
+						<div className="max-h-[420px] overflow-y-auto overflow-x-hidden pr-1 dashboard-table-scroll scroll-thin">
 							<table className="w-full table-fixed">
 								<thead className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295] text-left sticky top-0 bg-[#10233E] z-10">
 									<tr>
-										<th className="pb-3 border-b border-[#1C3557] w-9">N°</th>
-										<th className="pb-3 border-b border-[#1C3557] pr-2">CLIENTE</th>
-										<th className="pb-3 border-b border-[#1C3557] w-20 text-right">TOTAL</th>
-										<th className="pb-3 border-b border-[#1C3557] w-28 pl-3">ESTADO</th>
+										<th className="pb-3.5 pt-1 border-b border-[#16294A] w-9 font-medium">N°</th>
+										<th className="pb-3.5 pt-1 border-b border-[#16294A] pr-3 font-medium">CLIENTE</th>
+										<th className="pb-3.5 pt-1 border-b border-[#16294A] w-24 pr-3 text-right font-medium">
+											TOTAL
+										</th>
+										<th className="pb-3.5 pt-1 border-b border-[#16294A] w-28 pl-3 font-medium">ESTADO</th>
 									</tr>
 								</thead>
 								<tbody className="stagger-in">
@@ -362,17 +382,19 @@ const Dashboard: React.FC = () => {
 											onClick={() => navigate(`/cotizacion/${quote.id}`, { state: { from: '/dashboard' } })}
 											className="group border-b border-[#16294A] text-sm text-[#D6E2F2] hover:bg-[#14294A] transition-colors cursor-pointer"
 										>
-											<td className="py-4 w-9 row-shift">#{String(idx + 1).padStart(3, '0')}</td>
-											<td className="py-4 pr-2 min-w-0">
-												<p className="truncate">{quote.clientName}</p>
-												<p className="text-[11px] text-[#5B7295] truncate">
+											<td className="py-3.5 w-9 row-shift text-[#5B7295]">
+												#{String(idx + 1).padStart(3, '0')}
+											</td>
+											<td className="py-3.5 pr-3 min-w-0">
+												<p className="truncate font-medium text-[#E6EDF7]">{quote.clientName}</p>
+												<p className="mt-1 text-[11px] leading-tight text-[#8FA6C4] truncate">
 													{new Date(quote.createdAt).toLocaleDateString('es-ES')}
 												</p>
 											</td>
-											<td className="py-4 w-20 text-right font-medium text-white">
+											<td className="py-3.5 w-24 pr-3 text-right whitespace-nowrap tabular-nums font-medium text-white">
 												{formatCurrency(quote.finalPrice)}
 											</td>
-											<td className="py-4 w-28 pl-3">
+											<td className="py-3.5 w-28 pl-3">
 												<StatusBadge status={quote.status} />
 											</td>
 										</tr>

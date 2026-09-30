@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { AlertCircle, BadgeDollarSign, Check, Code2, Crown, Lock, RotateCcw, Settings, ShieldCheck, Target, Trash2, UserPlus, Users } from 'lucide-react';
+import { AlertCircle, BadgeDollarSign, Check, Code2, Crown, Lock, RotateCcw, Settings, ShieldCheck, Target, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { AVAILABILITY_LABELS, ROLE_LABELS } from '@/shared/constants';
@@ -17,6 +17,9 @@ const SELECT_CLASS =
 	'w-full bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none';
 const CARD_CLASS = 'bg-[#10233E] border border-[#1C3557] rounded-2xl';
 const SECTION_TITLE = 'font-display text-sm uppercase tracking-[0.12em] text-white mb-4';
+const SECTION_TITLE_FLAT = 'font-display text-sm uppercase tracking-[0.12em] text-white';
+const SECTION_ICON =
+	'w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0';
 
 const ROLE_ICONS: Record<string, LucideIcon> = {
 	super_admin: ShieldCheck,
@@ -36,6 +39,15 @@ const ROLE_BADGES: Record<string, string> = {
 
 const ROLE_BADGE_BASE = 'text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full';
 
+const AVAILABILITY_DOT: Record<string, string> = {
+	disponible: 'bg-[#34D399] shadow-[0_0_8px_rgba(52,211,153,0.7)]',
+	ocupado: 'bg-[#FBBF24] shadow-[0_0_8px_rgba(251,191,36,0.7)]',
+	no_disponible: 'bg-[#FB7185] shadow-[0_0_8px_rgba(251,113,133,0.7)]',
+};
+
+const AVATAR_CLASS =
+	'rounded-full overflow-hidden bg-gradient-to-br from-[#1877E8] to-[#6366F1] ring-2 ring-[#1877E8]/40 flex items-center justify-center shrink-0 font-display text-white';
+
 const initials = (name: string) =>
 	name
 		.split(' ')
@@ -44,6 +56,18 @@ const initials = (name: string) =>
 		.slice(0, 2)
 		.join('')
 		.toUpperCase();
+
+interface AvatarProps {
+	name: string;
+	avatar?: string | null;
+	className?: string;
+}
+
+const Avatar: React.FC<AvatarProps> = ({ name, avatar, className = '' }) => (
+	<span className={`${AVATAR_CLASS} ${className}`}>
+		{avatar ? <img src={avatar} alt={name} className="w-full h-full object-cover" /> : initials(name)}
+	</span>
+);
 
 const TeamManager: React.FC = () => {
 	const { user } = useAuth();
@@ -255,6 +279,35 @@ const TeamManager: React.FC = () => {
 	}
 
 	const developers = users.filter((member) => member.role === 'desarrollador');
+	const activeMembers = users.filter((member) => member.isActive).length;
+	const sellers = users.filter((member) => member.role === 'vendedor').length;
+
+	const stats: { label: string; value: number; icon: LucideIcon; tone: string }[] = [
+		{
+			label: 'Total miembros',
+			value: users.length,
+			icon: Users,
+			tone: 'text-[#60A5FA] bg-[#1877E8]/10 border-[#1877E8]/25',
+		},
+		{
+			label: 'Activos',
+			value: activeMembers,
+			icon: UserCheck,
+			tone: 'text-[#34D399] bg-[#34D399]/10 border-[#34D399]/25',
+		},
+		{
+			label: 'Desarrolladores',
+			value: developers.length,
+			icon: Code2,
+			tone: 'text-[#A5B4FC] bg-[#6366F1]/10 border-[#6366F1]/25',
+		},
+		{
+			label: 'Vendedores',
+			value: sellers,
+			icon: BadgeDollarSign,
+			tone: 'text-[#FBBF24] bg-[#F59E0B]/10 border-[#F59E0B]/25',
+		},
+	];
 
 	return (
 		<div className="max-w-7xl mx-auto space-y-6">
@@ -281,6 +334,29 @@ const TeamManager: React.FC = () => {
 				}
 			/>
 
+			<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger-in">
+				{stats.map(({ label, value, icon: StatIcon, tone }) => (
+					<div
+						key={label}
+						className="flex items-center gap-3 bg-[#0C1E36] border border-[#1C3557] rounded-xl px-4 py-3 hover-lift"
+					>
+						<span
+							className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${tone}`}
+						>
+							<StatIcon className="h-4 w-4" />
+						</span>
+						<div className="min-w-0">
+							<p className="font-display text-xl font-bold text-white leading-none tabular-nums">
+								{value}
+							</p>
+							<p className="text-[10px] uppercase tracking-[0.16em] text-[#8FA6C4] mt-1.5 truncate">
+								{label}
+							</p>
+						</div>
+					</div>
+				))}
+			</div>
+
 			{formSuccess && (
 				<div className="flex items-center gap-2 bg-[#059669]/15 border border-[#059669]/40 text-[#34D399] rounded-xl p-3 text-sm font-medium">
 					<Check className="h-4 w-4 shrink-0" />
@@ -291,7 +367,12 @@ const TeamManager: React.FC = () => {
 			{showForm && (
 				<div className="collapsible-open">
 					<Card className={`p-6 ${CARD_CLASS} min-h-0 overflow-hidden`}>
-						<h2 className={SECTION_TITLE}>Nuevo miembro</h2>
+						<div className="flex items-center gap-3 mb-4">
+							<span className={SECTION_ICON}>
+								<UserPlus className="h-4 w-4" />
+							</span>
+							<h2 className={SECTION_TITLE_FLAT}>Nuevo miembro</h2>
+						</div>
 						<form onSubmit={handleSubmit} className="space-y-4">
 							{formError && (
 								<div className="flex items-center gap-2 bg-[#E11D48]/10 border border-[#E11D48]/30 text-[#FB7185] rounded-xl p-3 text-sm">
@@ -299,7 +380,7 @@ const TeamManager: React.FC = () => {
 									{formError}
 								</div>
 							)}
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 								<div>
 									<label htmlFor="member-name" className={LABEL_CLASS}>
 										Nombre
@@ -356,7 +437,7 @@ const TeamManager: React.FC = () => {
 									</select>
 								</div>
 								{form.role === 'desarrollador' && (
-									<div className="sm:col-span-2">
+									<div className="sm:col-span-2 lg:col-span-3">
 										<label htmlFor="member-specialty" className={LABEL_CLASS}>
 											Especialidad (opcional)
 										</label>
@@ -392,7 +473,12 @@ const TeamManager: React.FC = () => {
 			)}
 
 			<Card className={`p-6 ${CARD_CLASS}`}>
-				<h2 className={SECTION_TITLE}>Desarrolladores</h2>
+				<div className="flex items-center gap-3 mb-4">
+					<span className={SECTION_ICON}>
+						<Code2 className="h-4 w-4" />
+					</span>
+					<h2 className={SECTION_TITLE_FLAT}>Desarrolladores</h2>
+				</div>
 				{loading ? (
 					<div className="flex justify-center py-10">
 						<Spinner />
@@ -422,6 +508,8 @@ const TeamManager: React.FC = () => {
 									);
 									const isSaving = !!savingRows[member.id];
 									const rowError = rowErrors[member.id];
+									const status = availability?.status || 'disponible';
+									const RoleIcon = ROLE_ICONS[member.role] || Users;
 									return (
 										<tr
 											key={member.id}
@@ -429,40 +517,51 @@ const TeamManager: React.FC = () => {
 										>
 											<td className="py-3 pr-4 row-shift">
 												<div className="flex items-center gap-3">
-													<span className="w-8 h-8 rounded-full bg-[#1877E8]/20 text-[#60A5FA] font-display text-xs flex items-center justify-center shrink-0">
-														{initials(member.name)}
+													<Avatar
+														name={member.name}
+														avatar={member.avatar}
+														className="w-9 h-9 text-[11px] avatar-pop"
+													/>
+													<span className="font-medium text-white transition-colors group-hover:text-[#60A5FA]">
+														{member.name}
 													</span>
-													<span className="font-medium text-white">{member.name}</span>
 												</div>
 											</td>
-											<td className="py-3 pr-4 text-[#8FA6C4]">{member.code}</td>
+											<td className="py-3 pr-4 font-mono text-[#8FA6C4]">{member.code}</td>
 											<td className="py-3 pr-4">
 												<span
-													className={`${ROLE_BADGE_BASE} ${
+													className={`${ROLE_BADGE_BASE} inline-flex items-center gap-1.5 ${
 														ROLE_BADGES[member.role] || 'bg-[#1C3557] text-[#8FA6C4]'
 													}`}
 												>
+													<RoleIcon className="h-3 w-3" />
 													{ROLE_LABELS[member.role] || member.role}
 												</span>
 											</td>
-											<td className="py-3 pr-4 text-[#8FA6C4]">
+											<td className="py-3 pr-4 text-[#8FA6C4] tabular-nums">
 												{availability ? String(availability.activeQuotes) : '—'}
 											</td>
 											<td className="py-3">
-												<select
-													value={availability?.status || 'disponible'}
-													onChange={(e) => handleStatusChange(member.id, e.target.value)}
-													disabled={isSaving}
-													className="bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none disabled:opacity-60"
-												>
-													<option value="disponible">
-														{AVAILABILITY_LABELS.disponible}
-													</option>
-													<option value="ocupado">{AVAILABILITY_LABELS.ocupado}</option>
-													<option value="no_disponible">
-														{AVAILABILITY_LABELS.no_disponible}
-													</option>
-												</select>
+												<div className="flex items-center gap-2">
+													<span
+														className={`w-2 h-2 rounded-full shrink-0 ${AVAILABILITY_DOT[status]}`}
+													/>
+													<select
+														value={status}
+														onChange={(e) => handleStatusChange(member.id, e.target.value)}
+														disabled={isSaving}
+														aria-label={`Disponibilidad de ${member.name}`}
+														className={`${SELECT_CLASS} disabled:opacity-60`}
+													>
+														<option value="disponible">
+															{AVAILABILITY_LABELS.disponible}
+														</option>
+														<option value="ocupado">{AVAILABILITY_LABELS.ocupado}</option>
+														<option value="no_disponible">
+															{AVAILABILITY_LABELS.no_disponible}
+														</option>
+													</select>
+												</div>
 												{isSaving && (
 													<p className="text-xs text-[#8FA6C4] mt-1">Guardando…</p>
 												)}
@@ -480,7 +579,12 @@ const TeamManager: React.FC = () => {
 			</Card>
 
 			<Card className={`p-6 ${CARD_CLASS}`}>
-				<h2 className={SECTION_TITLE}>Miembros del equipo</h2>
+				<div className="flex items-center gap-3 mb-4">
+					<span className={SECTION_ICON}>
+						<Users className="h-4 w-4" />
+					</span>
+					<h2 className={SECTION_TITLE_FLAT}>Miembros del equipo</h2>
+				</div>
 				{loading ? (
 					<div className="flex justify-center py-10">
 						<Spinner />
@@ -501,23 +605,51 @@ const TeamManager: React.FC = () => {
 									type="button"
 									onClick={() => setDetailId(member.id)}
 									aria-label={`Ver ficha de ${member.name}`}
-									className="flex items-center gap-3 bg-[#0C1E36] border border-[#1C3557] rounded-xl p-4 hover-lift hover:border-[#1877E8]/50 hover:bg-[#14294A] transition-all text-left cursor-pointer w-full"
+									className="group flex items-center gap-3.5 bg-[#0C1E36] border border-[#16294A] rounded-2xl p-4 hover-lift hover:border-[#1877E8]/50 hover:bg-[#14294A] transition-all text-left cursor-pointer w-full"
 								>
-									<span className="w-9 h-9 rounded-lg bg-[#1877E8]/10 text-[#60A5FA] flex items-center justify-center shrink-0">
-										<RoleIcon className="h-4 w-4" />
+									<span className="relative shrink-0">
+										<Avatar
+											name={member.name}
+											avatar={member.avatar}
+											className="w-11 h-11 text-xs avatar-pop"
+										/>
+										<span
+											className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0C1E36] ${
+												member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
+											}`}
+										/>
 									</span>
 									<div className="min-w-0 flex-1">
-										<p className="text-sm font-medium text-white truncate group-hover:text-[#60A5FA]">
+										<p className="text-sm font-semibold text-white truncate transition-colors group-hover:text-[#60A5FA]">
 											{member.name}
 										</p>
-										<p className="text-xs text-[#8FA6C4]">{member.code}</p>
+										<div className="flex items-center gap-2 mt-1.5 min-w-0">
+											<span
+												className={`${ROLE_BADGE_BASE} inline-flex items-center gap-1 shrink-0 ${
+													ROLE_BADGES[member.role] || 'bg-[#1C3557] text-[#8FA6C4]'
+												}`}
+											>
+												<RoleIcon className="h-3 w-3" />
+												{ROLE_LABELS[member.role] || member.role}
+											</span>
+											<span className="font-mono text-[11px] text-[#5B7295] truncate">
+												{member.code}
+											</span>
+										</div>
 									</div>
 									<span
-										className={`${ROLE_BADGE_BASE} shrink-0 ${
-											ROLE_BADGES[member.role] || 'bg-[#1C3557] text-[#8FA6C4]'
+										className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${
+											member.isActive
+												? 'bg-[#34D399]/10 text-[#34D399]'
+												: 'bg-[#E11D48]/10 text-[#FB7185]'
 										}`}
 									>
-										{ROLE_LABELS[member.role] || member.role}
+										<span
+											className={`w-1.5 h-1.5 rounded-full ${
+												member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
+											}`}
+										/>
+										{member.isActive ? 'Activo' : 'Inactivo'}
 									</span>
 								</button>
 							);
@@ -532,34 +664,40 @@ const TeamManager: React.FC = () => {
 					onClick={() => setShowManage(false)}
 				>
 					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="manage-team-title"
 						className="bg-[#10233E] border border-[#1C3557] rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-y-auto p-6 shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)] animate-scale-in"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<div className="flex items-center justify-between gap-4 mb-4">
-							<div>
-								<h2 className={SECTION_TITLE + ' mb-1'}>Gestionar equipo</h2>
-								<p className="text-xs text-[#5B7295]">
-									Cambiá el sector de cada miembro o restablecé sus credenciales
-								</p>
+						<div className="flex items-start justify-between gap-4 mb-5 pb-4 border-b border-[#16294A]">
+							<div className="flex items-center gap-3 min-w-0">
+								<span className={SECTION_ICON}>
+									<Settings className="h-5 w-5" />
+								</span>
+								<div className="min-w-0">
+									<h2 id="manage-team-title" className={SECTION_TITLE + ' mb-1'}>
+										Gestionar equipo
+									</h2>
+									<p className="text-xs text-[#5B7295]">
+										Cambiá el sector de cada miembro o restablecé sus credenciales
+									</p>
+								</div>
 							</div>
-							<div className="flex items-center gap-2">
-								{user?.role === 'super_admin' ? (
-									<Button
-										variant="secondary"
-										size="sm"
-										onClick={() => {
-											setShowManage(false);
-											setShowForm(true);
-										}}
-									>
-										<UserPlus className="h-3.5 w-3.5" />
-										Agregar miembro
-									</Button>
-								) : null}
-								<Button variant="ghost" size="sm" onClick={() => setShowManage(false)}>
-									Cerrar
+							{user?.role === 'super_admin' ? (
+								<Button
+									variant="secondary"
+									size="sm"
+									className="shrink-0"
+									onClick={() => {
+										setShowManage(false);
+										setShowForm(true);
+									}}
+								>
+									<UserPlus className="h-3.5 w-3.5" />
+									Agregar miembro
 								</Button>
-							</div>
+							) : null}
 						</div>
 						{loading ? (
 							<div className="flex justify-center py-10">
@@ -593,9 +731,11 @@ const TeamManager: React.FC = () => {
 												>
 													<td className="py-3 pr-4 row-shift">
 														<div className="flex items-center gap-3">
-															<span className="w-8 h-8 rounded-full bg-[#1877E8]/20 text-[#60A5FA] font-display text-xs flex items-center justify-center shrink-0">
-																{initials(member.name)}
-															</span>
+															<Avatar
+																name={member.name}
+																avatar={member.avatar}
+																className="w-9 h-9 text-[11px] avatar-pop"
+															/>
 															<div className="min-w-0">
 																<button
 																	type="button"
@@ -611,12 +751,13 @@ const TeamManager: React.FC = () => {
 															</div>
 														</div>
 													</td>
-													<td className="py-3 pr-4 text-[#8FA6C4]">{member.code}</td>
+													<td className="py-3 pr-4 font-mono text-[#8FA6C4]">{member.code}</td>
 													<td className="py-3 pr-4">
 														<select
 															value={member.role}
 															onChange={(e) => updateMember(member.id, { role: e.target.value })}
 															disabled={isSaving}
+															aria-label={`Sector de ${member.name}`}
 															className="bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none disabled:opacity-60"
 														>
 															<option value="vendedor">{ROLE_LABELS.vendedor}</option>
@@ -636,6 +777,7 @@ const TeamManager: React.FC = () => {
 																variant="secondary"
 																size="sm"
 																disabled={isSaving}
+																title="Restablecer acceso"
 																onClick={() => resetCredentials(member.id, member.name)}
 															>
 																<RotateCcw className="h-3.5 w-3.5" />
@@ -646,6 +788,7 @@ const TeamManager: React.FC = () => {
 																size="sm"
 																disabled={isSaving}
 																aria-label={`Eliminar a ${member.name}`}
+																title="Eliminar"
 																onClick={() => deleteMember(member.id, member.name)}
 															>
 																<Trash2 className="h-3.5 w-3.5" />
@@ -657,11 +800,19 @@ const TeamManager: React.FC = () => {
 											);
 										})}
 									</tbody>
-							</table>
+								</table>
+							</div>
+						)}
+						<div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-4 mt-4 bg-[#10233E] border-t border-[#16294A] flex items-center justify-between gap-3">
+							<p className="text-[11px] uppercase tracking-[0.16em] text-[#5B7295]">
+								{users.length} {users.length === 1 ? 'miembro' : 'miembros'} en el equipo
+							</p>
+							<Button variant="ghost" size="sm" onClick={() => setShowManage(false)}>
+								Cerrar
+							</Button>
 						</div>
-					)}
-				</div>
-			</div>,
+					</div>
+				</div>,
 			document.body
 			) : null}
 

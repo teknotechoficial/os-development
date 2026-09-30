@@ -542,3 +542,20 @@
 - **BD final**: 9 quotes, 6 services, 0 attempts; app cerrada.
 
 **Aprendizaje**: patrón TURBO (4 agentes paralelos con CONTRATO de API fijado de antemano: firma ImageCropper exacta + labels de tabs exactos + ids de inputs = probes y UI se alinean sin revision posterior). Los probes E2E se actualizan en el MISMO lote que la UI que rompen (seccion 5 dependia de "sin tabs").
+
+### [2026-09-29 22:45:00] - 🔥 Tarea: 7 mejoras UI batch (build20) - E2E 5/5
+
+**Que paso**: 7 peticiones de una vez, ejecutadas con 5 subagentes TURBO en paralelo + logo hecho a mano:
+
+1. **Cotizaciones - gestion util** (QuoteHistory.tsx): barra de gestion (contador `{filtered.length} cotizaciones` + input "Buscar cotizacion" + select "Filtrar por estado"), por fila: select "Cambiar estado de la cotizacion de X" (PUT optimista + refetch) y "Duplicar cotizacion de X" (POST copia " (copia)" borrador). Preservados aria Editar/Eliminar y "Salir de gestion".
+2. **Servicios UI** (Services.tsx): editor en 2 columnas (izq: preview grande VISTA PREVIA + #svc-icon + #svc-order + checkbox; der: #svc-name, #svc-category/#svc-price fila, #svc-desc), chip categoria en header, footer alineado, modal max-w-2xl. ids/`__custom__`/16 iconos/CREAR SERVICIO preservados.
+3. **Equipo mas lindo** (TeamManager.tsx): stats pills x4 (Total/Activos/Devs/Vendedores), avatares anillados, badges rol/estado, modal gestion con icon chip + footer sticky "N MIEMBROS EN EL EQUIPO"/CERRAR. aria "Ver ficha de X", "Gestionar equipo", tabla MIEMBRO/CODIGO/SECTOR/ACCIONES, 3 selects preservados.
+4. **Ajustes +** (Settings.tsx + globals.css): card "Preferencias de la aplicacion" en tab Cuenta (toggle Reducir animaciones -> clase .reduced-motion con regla CSS, select Cotizaciones recientes 5/10/15 -> localStorage nt_prefs.recentLimit, Restablecer preferencias); procesamiento de logo: canvas 512, chroma-key fondo claro (esquinas >225, pixeles >235 -> transparente), fondo #0A182E, roundRect 18%. 3 tabs intactos.
+5. **Dashboard recientes** (Dashboard.tsx): aire py-3.5, scroll interno max-h-[420px] + .scroll-thin (nueva clase globals.css), limite desde localStorage recentLimit (default 10), headers N/CLIENTE/TOTAL/ESTADO y TAREAS intactos.
+6. **Logo app**: sidebar y login con tile navy rounded-2xl/rounded-[30px] bg-[#10233E] border-[#1877E8]/30 sobre logo-white.png; assets/logo-icon.png regenerado navy #10233E 512px via PowerShell System.Drawing (224,822 pixeles <70 -> navy; backup logo-icon-black.png). Builder ya usaba ese icono.
+
+**Verificacion**: tsc 0, build20, NSIS bloqueado 3x -> fallback win-unpacked (ASAR 22:19). E2E 5/5: b13 76/76, c/d/b2/v5 exit 0, 0 excepciones. Capturas: editor 2 col, modal equipo, gestion cotizaciones, sidebar logo tile - todas verificadas.
+
+**Gotchas**: (1) verify-b13 corrio bien pero la app MUERIO despues (CDP/health caidos) -> los 4 probes restantes dieron "FATAL fetch failed"; relanzar app + DELETE login_attempts y re-ejecutar = todo verde. (2) El runner run-all-b13 se colgo 30min tras FATAL+reintento - mejor lanzar probes uno a uno con timeout individual. (3) El timeout del shell mato el comando a 1800s.
+
+**BD final**: 9 quotes, 6 services, 0 attempts; app cerrada.

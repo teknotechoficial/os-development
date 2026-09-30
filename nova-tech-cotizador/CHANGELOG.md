@@ -38,6 +38,34 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build20] - 2026-09-29
+
+### Added
+- **Cotizaciones — gestión real**: barra de gestión con contador + "Buscar cotización" +
+  filtro por estado; por fila se añadieron **cambio de estado rápido** (PUT optimista) y
+  **Duplicar cotización**; se mantiene editar/eliminar en 2 pasos.
+- **Ajustes — Preferencias de la aplicación** (tab Cuenta, todos los roles): toggle
+  "Reducir animaciones" (clase `.reduced-motion` + regla en globals.css), select
+  "Cotizaciones recientes en Inicio" (5/10/15 → `localStorage nt_prefs.recentLimit`) y
+  "Restablecer preferencias".
+- **Ajustes — logo estilo app**: cualquier imagen subida se procesa en canvas (chroma-key
+  de fondo claro, 512×512, fondo `#0A182E`, esquinas redondeadas 18%) → dataURL PNG.
+
+### Changed
+- Build20 instalada (NSIS bloqueado 3× → fallback copia de `win-unpacked`, ASAR 22:19).
+- **Servicios**: editor con layout 2 columnas (preview grande del icono + icono/orden/activo
+  a la izquierda; nombre/categoría/precio/descripción a la derecha), chip de categoría en el
+  header, footer alineado a la derecha, modal `max-w-2xl`; catálogo con badges coherentes.
+- **Equipo**: stats pills (Total/Activos/Desarrolladores/Vendedores), tabla de devs y cards
+  de miembros con avatares anillados + badges de rol/estado, modal de gestión con icon chip,
+  filas con más aire y footer sticky "N MIEMBROS EN EL EQUIPO / Cerrar".
+- **Inicio — Cotizaciones recientes**: filas con más aire (`py-3.5`), scroll interno
+  (`max-h-[420px]`, scrollbar `.scroll-thin`), límite de filas configurable desde Ajustes,
+  columnas N°/CLIENTE/TOTAL/ESTADO intactas.
+- **Logo de la aplicación**: sidebar y login usan el lobo sobre **tile navy redondeado**
+  (estilo de la imagen de referencia); `assets/logo-icon.png` regenerado en navy `#10233E`
+  (512px, usado por ventana e instalador; backup `logo-icon-black.png`).
+
 ## [1.0.0-build19] - 2026-09-29
 
 ### Added

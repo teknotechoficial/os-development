@@ -115,7 +115,9 @@ const Login: React.FC = () => {
         <div className="relative w-full h-full flex flex-col px-14 py-10">
           <div className="flex-1 flex flex-col justify-center gap-10 max-w-xl mx-auto w-full">
             <div className="flex items-center gap-6">
-              <img src={LOGO_URL} alt="TeknoTech" className="w-[136px] h-[136px] object-contain shrink-0 drop-shadow-[0_0_24px_rgba(24,119,232,0.35)] animate-logo-float-soft" />
+              <div className="w-[156px] h-[156px] rounded-[30px] bg-[#10233E] border border-[#1877E8]/30 p-2.5 flex items-center justify-center shrink-0 shadow-[0_14px_44px_-12px_rgba(24,119,232,0.4)] animate-logo-float-soft">
+                <img src={LOGO_URL} alt="TeknoTech" className="w-[136px] h-[136px] object-contain" />
+              </div>
               <div>
                 <p className="font-display text-[42px] leading-none text-white tracking-[0.08em]">TEKNOTECH</p>
                 <p className="font-display text-[26px] text-[#1877E8] tracking-[0.35em] mt-2">SERVICES</p>

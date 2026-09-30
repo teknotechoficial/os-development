@@ -228,11 +228,13 @@ const AppLayout: React.FC = () => {
     <div className="min-h-screen bg-[#0A182E]">
       <aside className="fixed left-0 top-0 h-screen w-72 bg-[#081426] border-r border-[#16294A] flex flex-col z-20">
         <div className="px-6 py-6 flex items-center gap-3.5 border-b border-[#16294A]/70">
-          <img
-            src={logoUrl}
-            alt="TeknoTech"
-            className="w-14 h-14 object-contain shrink-0 drop-shadow-[0_0_12px_rgba(24,119,232,0.35)]"
-          />
+          <div className="w-14 h-14 rounded-2xl bg-[#10233E] border border-[#1877E8]/30 p-1.5 flex items-center justify-center shrink-0 shadow-[0_6px_20px_rgba(0,0,0,0.4)]">
+            <img
+              src={logoUrl}
+              alt="TeknoTech"
+              className="w-full h-full object-contain"
+            />
+          </div>
           <div className="leading-none">
             <p className="font-display text-[17px] text-white tracking-[0.12em]">TeknoTech</p>
             <p className="font-display text-[10px] text-[#1877E8] tracking-[0.42em] mt-1.5">SERVICES</p>

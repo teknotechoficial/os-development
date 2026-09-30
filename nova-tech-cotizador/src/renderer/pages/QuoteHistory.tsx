@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, FilePlus2, FileSearch, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronRight, Copy, FilePlus2, FileSearch, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useQuotes } from '@/renderer/store/quotes';
 import { useTeam } from '@/renderer/store/team';
 import { apiUrl } from '@/renderer/api';
+import type { Quote } from '@/shared/types';
 import { PRODUCT_NAMES, STATUS_LABELS } from '@/shared/constants';
 import { formatCurrency } from '@/shared/validators';
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/renderer/components/ui';
@@ -15,6 +16,7 @@ type SortOption = 'recent' | 'old' | 'price';
 
 const ACTIVE_STATUSES = ['borrador', 'enviada', 'aceptada'];
 const ARCHIVED_STATUSES = ['pagada', 'rechazada'];
+const ALL_STATUSES = ['borrador', 'enviada', 'aceptada', 'rechazada', 'pagada'];
 
 interface QuoteHistoryProps {
 	mode?: 'active' | 'archived';
@@ -22,7 +24,7 @@ interface QuoteHistoryProps {
 
 const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 	const { user } = useAuth();
-	const { quotes, fetchMyQuotes, removeQuote } = useQuotes();
+	const { quotes, fetchMyQuotes, removeQuote, updateQuote } = useQuotes();
 	const { users, fetchTeam } = useTeam();
 	const navigate = useNavigate();
 
@@ -70,6 +72,45 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 
 	const isArchived = mode === 'archived';
 
+	const manageMode = manage && !isArchived;
+
+	const handleStatusChange = async (id: string, nextStatus: Quote['status']) => {
+		updateQuote(id, { status: nextStatus });
+		try {
+			const response = await fetch(apiUrl(`/api/quotes/${id}`), {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ status: nextStatus }),
+			});
+			if (!response.ok) console.error('Error updating quote status');
+		} catch (error) {
+			console.error('Error updating quote status:', error);
+		} finally {
+			await fetchMyQuotes();
+		}
+	};
+
+	const handleDuplicate = async (quote: Quote) => {
+		try {
+			const response = await fetch(apiUrl('/api/quotes'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					productType: quote.productType,
+					config: quote.config,
+					clientName: `${quote.clientName} (copia)`,
+					clientType: quote.clientType,
+					sellerId: quote.sellerId,
+					developerId: null,
+				}),
+			});
+			if (!response.ok) throw new Error('Error al duplicar la cotización');
+			await fetchMyQuotes();
+		} catch (error) {
+			console.error('Error duplicating quote:', error);
+		}
+	};
+
 	const sellerName = (sellerId: string) => {
 		const member = users.find((u) => u.id === sellerId);
 		if (member) return member.name;
@@ -86,8 +127,14 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 		([key]) => isArchived || !ARCHIVED_STATUSES.includes(key)
 	);
 
+	const needle = query.trim().toLowerCase();
+
 	const filtered = scoped
-		.filter((q) => q.clientName.toLowerCase().includes(query.trim().toLowerCase()))
+		.filter((q) => {
+			if (!needle) return true;
+			const number = `#${q.id.slice(0, 8).toUpperCase()}`.toLowerCase();
+			return q.clientName.toLowerCase().includes(needle) || number.includes(needle);
+		})
 		.filter((q) => (status === 'todos' ? true : q.status === status))
 		.sort((a, b) => {
 			if (sort === 'price') return b.finalPrice - a.finalPrice;
@@ -130,15 +177,21 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 				}
 			/>
 
-			<Card className="p-4">
+			<Card className={manageMode ? 'p-4 ring-1 ring-[#1877E8]/40' : 'p-4'}>
 				<div className="flex flex-col md:flex-row gap-3">
+					{manageMode ? (
+						<span className="self-start inline-flex items-center gap-2 rounded-lg bg-[#1877E8]/10 border border-[#1877E8]/30 px-3 py-2 font-display text-[11px] uppercase tracking-[0.18em] text-[#60A5FA] whitespace-nowrap animate-fade-in-up">
+							{filtered.length} cotizaciones
+						</span>
+					) : null}
 					<div className="relative flex-1">
 						<Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#5B7295]" />
 						<input
 							type="text"
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
-							placeholder="Buscar por cliente..."
+							placeholder={manageMode ? 'Buscar cotización' : 'Buscar por cliente...'}
+							aria-label={manageMode ? 'Buscar cotización' : 'Buscar por cliente...'}
 							className="w-full pl-9 pr-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm"
 						/>
 					</div>
@@ -155,18 +208,39 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 							</select>
 						</label>
 					) : null}
-					<select
-						value={status}
-						onChange={(e) => setStatus(e.target.value as StatusFilter)}
-						className="bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30"
-					>
-						<option value="todos">Todos los estados</option>
-						{statusOptions.map(([key, label]) => (
-							<option key={key} value={key}>
-								{label}
-							</option>
-						))}
-					</select>
+					{manageMode ? (
+						<div className="flex items-center gap-2 whitespace-nowrap">
+							<label htmlFor="manage-status-filter" className="text-sm text-[#8FA6C4]">
+								Filtrar por estado
+							</label>
+							<select
+								id="manage-status-filter"
+								value={status}
+								onChange={(e) => setStatus(e.target.value as StatusFilter)}
+								className="bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30"
+							>
+								<option value="todos">Todos</option>
+								{ALL_STATUSES.map((key) => (
+									<option key={key} value={key}>
+										{STATUS_LABELS[key]}
+									</option>
+								))}
+							</select>
+						</div>
+					) : (
+						<select
+							value={status}
+							onChange={(e) => setStatus(e.target.value as StatusFilter)}
+							className="bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30"
+						>
+							<option value="todos">Todos los estados</option>
+							{statusOptions.map(([key, label]) => (
+								<option key={key} value={key}>
+									{label}
+								</option>
+							))}
+						</select>
+					)}
 					<select
 						value={sort}
 						onChange={(e) => setSort(e.target.value as SortOption)}
@@ -291,6 +365,31 @@ const QuoteHistory: React.FC<QuoteHistoryProps> = ({ mode = 'active' }) => {
 										<td className="py-3 text-right whitespace-nowrap">
 											{manage ? (
 												<span className="inline-flex items-center gap-2 justify-end">
+													<select
+														aria-label={`Cambiar estado de la cotización de ${quote.clientName}`}
+														value={quote.status}
+														onChange={(e) => {
+															void handleStatusChange(quote.id, e.target.value as Quote['status']);
+														}}
+														className="bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30"
+													>
+														{ALL_STATUSES.map((key) => (
+															<option key={key} value={key}>
+																{STATUS_LABELS[key]}
+															</option>
+														))}
+													</select>
+													<button
+														type="button"
+														aria-label={`Duplicar cotización de ${quote.clientName}`}
+														onClick={(e) => {
+															e.stopPropagation();
+															void handleDuplicate(quote);
+														}}
+														className="p-1.5 rounded-lg bg-[#1C3557]/70 border border-[#2E4A75] text-[#B8C9E0] hover:bg-[#1877E8]/25 transition-colors"
+													>
+														<Copy className="w-3.5 h-3.5" />
+													</button>
 													<button
 														type="button"
 														aria-label={`Editar cotización de ${quote.clientName}`}

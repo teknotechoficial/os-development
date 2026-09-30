@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Building2, Check, KeyRound, Mail, Server, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Building2, Check, KeyRound, Mail, Server, Sliders, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { apiUrl } from '@/renderer/api';
@@ -48,6 +48,106 @@ const DEFAULT_SETTINGS: SettingsData = {
 };
 
 type BannerState = { type: 'success' | 'error'; message: string };
+
+const PREFS_STORAGE_KEY = 'nt_prefs';
+const RECENT_LIMIT_OPTIONS = [5, 10, 15];
+
+interface UserPrefs {
+	reducedMotion: boolean;
+	recentLimit: number;
+}
+
+const DEFAULT_PREFS: UserPrefs = { reducedMotion: false, recentLimit: 10 };
+
+const readUserPrefs = (): UserPrefs => {
+	try {
+		const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
+		if (!raw) return { ...DEFAULT_PREFS };
+		const parsed = JSON.parse(raw) as Partial<UserPrefs>;
+		const limit = typeof parsed.recentLimit === 'number' ? parsed.recentLimit : DEFAULT_PREFS.recentLimit;
+		return {
+			reducedMotion: parsed.reducedMotion === true,
+			recentLimit: RECENT_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : DEFAULT_PREFS.recentLimit,
+		};
+	} catch {
+		return { ...DEFAULT_PREFS };
+	}
+};
+
+const persistUserPrefs = (prefs: UserPrefs) => {
+	try {
+		window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
+	} catch {
+		/* localStorage no disponible */
+	}
+};
+
+const removeUserPrefs = () => {
+	try {
+		window.localStorage.removeItem(PREFS_STORAGE_KEY);
+	} catch {
+		/* localStorage no disponible */
+	}
+};
+
+const LOGO_SIZE = 512;
+const LOGO_RADIUS = Math.round(LOGO_SIZE * 0.18);
+const LOGO_PADDING = Math.round(LOGO_SIZE * 0.06);
+
+const processLogoToAppStyle = (img: HTMLImageElement): string | null => {
+	const source = document.createElement('canvas');
+	source.width = Math.max(1, img.naturalWidth || img.width);
+	source.height = Math.max(1, img.naturalHeight || img.height);
+	const sourceCtx = source.getContext('2d');
+	if (!sourceCtx) return null;
+	sourceCtx.drawImage(img, 0, 0, source.width, source.height);
+
+	let backgroundCleared = false;
+	try {
+		const width = source.width;
+		const height = source.height;
+		const pixels = sourceCtx.getImageData(0, 0, width, height);
+		const data = pixels.data;
+		const sample = (x: number, y: number) => {
+			const index = (y * width + x) * 4;
+			return (data[index] + data[index + 1] + data[index + 2]) / 3;
+		};
+		const cornersAvg =
+			(sample(0, 0) + sample(width - 1, 0) + sample(0, height - 1) + sample(width - 1, height - 1)) / 4;
+		if (cornersAvg > 225) {
+			for (let i = 0; i < data.length; i += 4) {
+				if (data[i] > 235 && data[i + 1] > 235 && data[i + 2] > 235) data[i + 3] = 0;
+			}
+			sourceCtx.putImageData(pixels, 0, 0);
+			backgroundCleared = true;
+		}
+	} catch {
+		backgroundCleared = false;
+	}
+
+	const canvas = document.createElement('canvas');
+	canvas.width = LOGO_SIZE;
+	canvas.height = LOGO_SIZE;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return null;
+
+	ctx.beginPath();
+	ctx.roundRect(0, 0, LOGO_SIZE, LOGO_SIZE, LOGO_RADIUS);
+	ctx.clip();
+	ctx.fillStyle = '#0A182E';
+	ctx.fillRect(0, 0, LOGO_SIZE, LOGO_SIZE);
+
+	const drawable: CanvasImageSource = backgroundCleared ? source : img;
+	const srcWidth = backgroundCleared ? source.width : img.naturalWidth || img.width;
+	const srcHeight = backgroundCleared ? source.height : img.naturalHeight || img.height;
+	const available = LOGO_SIZE - LOGO_PADDING * 2;
+	const scale = Math.min(available / srcWidth, available / srcHeight);
+	const drawWidth = Math.max(1, srcWidth * scale);
+	const drawHeight = Math.max(1, srcHeight * scale);
+	ctx.drawImage(drawable, (LOGO_SIZE - drawWidth) / 2, (LOGO_SIZE - drawHeight) / 2, drawWidth, drawHeight);
+
+	return canvas.toDataURL('image/png');
+};
 
 interface FieldProps {
 	id: string;
@@ -146,8 +246,25 @@ const Settings: React.FC = () => {
 
 	const [testingMail, setTestingMail] = useState(false);
 
+	const [prefs, setPrefs] = useState<UserPrefs>(() => readUserPrefs());
+	const [prefsSaved, setPrefsSaved] = useState(false);
+	const prefsSavedTimer = useRef<number | null>(null);
+
 	const logoFileRef = useRef<HTMLInputElement>(null);
 	const [logoError, setLogoError] = useState<string | null>(null);
+
+	useEffect(() => {
+		const root = document.documentElement;
+		if (prefs.reducedMotion) root.classList.add('reduced-motion');
+		else root.classList.remove('reduced-motion');
+	}, [prefs.reducedMotion]);
+
+	useEffect(
+		() => () => {
+			if (prefsSavedTimer.current !== null) window.clearTimeout(prefsSavedTimer.current);
+		},
+		[],
+	);
 
 	useEffect(() => {
 		if (users.length === 0) void fetchTeam();
@@ -337,6 +454,25 @@ const Settings: React.FC = () => {
 			return Number.isFinite(next) ? { ...prev, marginMinimum: next } : prev;
 		});
 
+	const flashPrefsSaved = () => {
+		setPrefsSaved(true);
+		if (prefsSavedTimer.current !== null) window.clearTimeout(prefsSavedTimer.current);
+		prefsSavedTimer.current = window.setTimeout(() => setPrefsSaved(false), 2000);
+	};
+
+	const applyPrefs = (next: UserPrefs) => {
+		setPrefs(next);
+		persistUserPrefs(next);
+		flashPrefsSaved();
+	};
+
+	const resetPrefs = () => {
+		removeUserPrefs();
+		document.documentElement.classList.remove('reduced-motion');
+		setPrefs({ ...DEFAULT_PREFS });
+		flashPrefsSaved();
+	};
+
 	const handleLogoFile = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		event.target.value = '';
@@ -353,20 +489,12 @@ const Settings: React.FC = () => {
 		reader.onload = () => {
 			const img = new Image();
 			img.onload = () => {
-				const maxSide = 320;
-				const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-				const width = Math.max(1, Math.round(img.width * scale));
-				const height = Math.max(1, Math.round(img.height * scale));
-				const canvas = document.createElement('canvas');
-				canvas.width = width;
-				canvas.height = height;
-				const ctx = canvas.getContext('2d');
-				if (!ctx) {
+				const dataUrl = processLogoToAppStyle(img);
+				if (!dataUrl) {
 					setLogoError('No se pudo procesar la imagen');
 					return;
 				}
-				ctx.drawImage(img, 0, 0, width, height);
-				setField('companyLogo', canvas.toDataURL('image/jpeg', 0.8));
+				setField('companyLogo', dataUrl);
 				setLogoError(null);
 			};
 			img.onerror = () => setLogoError('No se pudo leer la imagen');
@@ -545,6 +673,65 @@ const Settings: React.FC = () => {
 								</Button>
 							</div>
 						</form>
+					</Card>
+
+					<Card className={`p-6 ${CARD_CLASS}`}>
+						<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+							<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+								<Sliders className="w-4 h-4" />
+							</span>
+							<div>
+								<h2 className={SECTION_TITLE.replace(' mb-4', '')}>
+									Preferencias de la aplicación
+								</h2>
+								<p className="text-xs text-[#5B7295]">
+									Personalizá cómo se comporta el sistema para vos
+								</p>
+							</div>
+						</div>
+
+						<div className="space-y-4">
+							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
+								<Toggle
+									checked={prefs.reducedMotion}
+									onChange={(value) => applyPrefs({ ...prefs, reducedMotion: value })}
+									label="Reducir animaciones"
+								/>
+								<p className="text-xs text-[#5B7295] mt-2 pl-12">
+									Desactiva transiciones y efectos visuales en toda la interfaz
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
+								<label htmlFor="settings-recent-limit" className={LABEL_CLASS}>
+									Cotizaciones recientes en Inicio
+								</label>
+								<select
+									id="settings-recent-limit"
+									value={String(prefs.recentLimit)}
+									onChange={(e) => applyPrefs({ ...prefs, recentLimit: Number(e.target.value) })}
+									className={INPUT_CLASS}
+								>
+									{RECENT_LIMIT_OPTIONS.map((option) => (
+										<option key={option} value={option}>
+											{option}
+										</option>
+									))}
+								</select>
+								<p className="text-xs text-[#5B7295] mt-2">
+									Cuántas cotizaciones recientes mostrar en el Dashboard
+								</p>
+							</div>
+
+							<div className="flex flex-wrap items-center gap-3 pt-1">
+								<Button type="button" variant="secondary" onClick={resetPrefs}>
+									Restablecer preferencias
+								</Button>
+								{prefsSaved ? (
+									<span className="text-xs text-[#34D399]">Guardado localmente</span>
+								) : null}
+							</div>
+						</div>
 					</Card>
 				</div>
 			) : null}

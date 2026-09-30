@@ -222,14 +222,19 @@ const ServiceEditor: React.FC<{
 			aria-modal="true"
 		>
 			<div
-				className="bg-[#10233E] border border-[#1C3557] rounded-2xl w-full max-w-lg shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)] animate-scale-in max-h-[90vh] overflow-y-auto"
+				className="bg-[#10233E] border border-[#1C3557] rounded-2xl w-full max-w-2xl shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)] animate-scale-in max-h-[90vh] overflow-y-auto"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<div className="p-6 border-b border-[#16294A] flex items-start justify-between">
+				<div className="p-6 border-b border-[#16294A] flex items-start justify-between gap-4">
 					<div>
-						<p className="font-display text-lg text-white uppercase tracking-wide">
-							{isEdit ? 'Editar servicio' : 'Nuevo servicio'}
-						</p>
+						<div className="flex items-center gap-2.5 flex-wrap">
+							<p className="font-display text-lg text-white uppercase tracking-wide">
+								{isEdit ? 'Editar servicio' : 'Nuevo servicio'}
+							</p>
+							<span className="text-[10px] uppercase tracking-[0.15em] bg-[#1877E8]/15 text-[#60A5FA] border border-[#1877E8]/30 rounded-full px-2.5 py-1">
+								{categoryLabel(form.category)}
+							</span>
+						</div>
 						<p className="text-xs text-[#5B7295] uppercase tracking-[0.15em] mt-1">
 							Catálogo de TeknoTech Services
 						</p>
@@ -244,145 +249,159 @@ const ServiceEditor: React.FC<{
 					</button>
 				</div>
 
-				<form onSubmit={save} className="p-6 space-y-4">
+				<form onSubmit={save} className="p-6 space-y-5">
 					{error ? (
 						<div className="bg-[#E11D48]/10 border border-[#E11D48]/30 text-[#FB7185] rounded-xl p-3 text-sm">
 							{error}
 						</div>
 					) : null}
 
-					<div className="flex items-center gap-4">
-						<span className="w-14 h-14 rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center shrink-0">
-							<PreviewIcon className="w-7 h-7" />
-						</span>
-						<div className="flex-1">
-							<label htmlFor="svc-icon" className={LABEL_CLASS}>
-								Icono
-							</label>
-							<select
-								id="svc-icon"
-								value={form.icon}
-								onChange={(e) => set('icon', e.target.value)}
-								className={SELECT_CLASS}
-							>
-								{ICON_NAMES.map((name) => (
-									<option key={name} value={name}>
-										{name}
-									</option>
-								))}
-							</select>
-						</div>
-					</div>
+					<div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+						<div className="sm:col-span-2 flex flex-col gap-4">
+							<div className="flex flex-col items-center gap-3 rounded-2xl bg-[#0C1E36] border border-[#1877E8]/30 px-5 py-6 hover-lift transition-shadow">
+								<span className="w-20 h-20 rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center">
+									<PreviewIcon className="w-10 h-10" />
+								</span>
+								<span className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295]">
+									Vista previa
+								</span>
+							</div>
 
-					<div>
-						<label htmlFor="svc-name" className={LABEL_CLASS}>
-							Nombre
-						</label>
-						<input
-							id="svc-name"
-							type="text"
-							value={form.name}
-							onChange={(e) => set('name', e.target.value)}
-							className={INPUT_CLASS}
-							placeholder="Ej: Desarrollo Web"
-						/>
-					</div>
+							<div>
+								<label htmlFor="svc-icon" className={LABEL_CLASS}>
+									Icono
+								</label>
+								<select
+									id="svc-icon"
+									value={form.icon}
+									onChange={(e) => set('icon', e.target.value)}
+									className={SELECT_CLASS}
+								>
+									{ICON_NAMES.map((name) => (
+										<option key={name} value={name}>
+											{name}
+										</option>
+									))}
+								</select>
+							</div>
 
-					<div className="grid grid-cols-2 gap-4">
-						<div>
-							<label htmlFor="svc-category" className={LABEL_CLASS}>
-								Categoría
-							</label>
-							<select
-								id="svc-category"
-								value={categorySelectValue}
-								onChange={(e) => {
-									if (e.target.value === CUSTOM_CATEGORY) set('category', '');
-									else set('category', e.target.value);
-								}}
-								className={SELECT_CLASS}
-							>
-								{Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-									<option key={key} value={key}>
-										{label}
-									</option>
-								))}
-								{!isKnownCategory && form.category ? (
-									<option value={form.category}>{categoryLabel(form.category)} (personalizada)</option>
-								) : null}
-								<option value={CUSTOM_CATEGORY}>＋ Nueva categoría…</option>
-							</select>
-							{!isKnownCategory ? (
+							<div>
+								<label htmlFor="svc-order" className={LABEL_CLASS}>
+									Orden
+								</label>
 								<input
-									id="svc-category-custom"
-									type="text"
-									value={form.category}
-									onChange={(e) => set('category', e.target.value)}
-									className={INPUT_CLASS + ' mt-2'}
-									placeholder="Nombre de la categoría (ej: SEO)"
-									autoFocus
+									id="svc-order"
+									type="number"
+									min={0}
+									step="1"
+									value={form.sortOrder}
+									onChange={(e) => set('sortOrder', e.target.value)}
+									className={INPUT_CLASS}
 								/>
-							) : null}
-						</div>
-						<div>
-							<label htmlFor="svc-price" className={LABEL_CLASS}>
-								Precio base (USD)
+							</div>
+
+							<label className="flex items-start gap-3 text-sm text-[#D6E2F2] cursor-pointer select-none pt-1">
+								<input
+									type="checkbox"
+									checked={form.active}
+									onChange={(e) => set('active', e.target.checked)}
+									className="w-4 h-4 mt-0.5 accent-[#1877E8]"
+								/>
+								Servicio activo (visible en catálogo)
 							</label>
-							<input
-								id="svc-price"
-								type="number"
-								min={0}
-								step="1"
-								value={form.basePrice}
-								onChange={(e) => set('basePrice', e.target.value)}
-								className={INPUT_CLASS}
-							/>
+						</div>
+
+						<div className="sm:col-span-3 flex flex-col gap-4">
+							<div>
+								<label htmlFor="svc-name" className={LABEL_CLASS}>
+									Nombre
+								</label>
+								<input
+									id="svc-name"
+									type="text"
+									value={form.name}
+									onChange={(e) => set('name', e.target.value)}
+									className={INPUT_CLASS}
+									placeholder="Ej: Desarrollo Web"
+								/>
+							</div>
+
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div>
+									<label htmlFor="svc-category" className={LABEL_CLASS}>
+										Categoría
+									</label>
+									<select
+										id="svc-category"
+										value={categorySelectValue}
+										onChange={(e) => {
+											if (e.target.value === CUSTOM_CATEGORY) set('category', '');
+											else set('category', e.target.value);
+										}}
+										className={SELECT_CLASS}
+									>
+										{Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+											<option key={key} value={key}>
+												{label}
+											</option>
+										))}
+										{!isKnownCategory && form.category ? (
+											<option value={form.category}>
+												{categoryLabel(form.category)} (personalizada)
+											</option>
+										) : null}
+										<option value={CUSTOM_CATEGORY}>＋ Nueva categoría…</option>
+									</select>
+									{!isKnownCategory ? (
+										<input
+											id="svc-category-custom"
+											type="text"
+											value={form.category}
+											onChange={(e) => set('category', e.target.value)}
+											className={INPUT_CLASS + ' mt-2'}
+											placeholder="Nombre de la categoría (ej: SEO)"
+											autoFocus
+										/>
+									) : null}
+								</div>
+								<div>
+									<label htmlFor="svc-price" className={LABEL_CLASS}>
+										Precio base (USD)
+									</label>
+									<input
+										id="svc-price"
+										type="number"
+										min={0}
+										step="1"
+										value={form.basePrice}
+										onChange={(e) => set('basePrice', e.target.value)}
+										className={INPUT_CLASS}
+									/>
+								</div>
+							</div>
+
+							<div>
+								<label htmlFor="svc-desc" className={LABEL_CLASS}>
+									Descripción
+								</label>
+								<textarea
+									id="svc-desc"
+									rows={3}
+									value={form.description}
+									onChange={(e) => set('description', e.target.value)}
+									className={INPUT_CLASS + ' resize-none'}
+									placeholder="Qué incluye este servicio…"
+								/>
+							</div>
 						</div>
 					</div>
 
-					<div>
-						<label htmlFor="svc-desc" className={LABEL_CLASS}>
-							Descripción
-						</label>
-						<textarea
-							id="svc-desc"
-							rows={3}
-							value={form.description}
-							onChange={(e) => set('description', e.target.value)}
-							className={INPUT_CLASS + ' resize-none'}
-							placeholder="Qué incluye este servicio…"
-						/>
-					</div>
-
-					<div className="grid grid-cols-2 gap-4 items-end">
-						<div>
-							<label htmlFor="svc-order" className={LABEL_CLASS}>
-								Orden
-							</label>
-							<input
-								id="svc-order"
-								type="number"
-								min={0}
-								step="1"
-								value={form.sortOrder}
-								onChange={(e) => set('sortOrder', e.target.value)}
-								className={INPUT_CLASS}
-							/>
-						</div>
-						<label className="flex items-center gap-3 text-sm text-[#D6E2F2] cursor-pointer select-none py-2.5">
-							<input
-								type="checkbox"
-								checked={form.active}
-								onChange={(e) => set('active', e.target.checked)}
-								className="w-4 h-4 accent-[#1877E8]"
-							/>
-							Servicio activo (visible en catálogo)
-						</label>
-					</div>
-
-					<div className="flex items-center gap-3 pt-2">
+					<div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-[#16294A]">
 						<Button type="submit" variant="primary" disabled={busy}>
 							{busy ? 'GUARDANDO…' : isEdit ? 'GUARDAR CAMBIOS' : 'CREAR SERVICIO'}
+						</Button>
+						<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
+							Cancelar
 						</Button>
 						{isEdit ? (
 							<Button type="button" variant="danger" disabled={busy} onClick={remove}>
@@ -390,13 +409,10 @@ const ServiceEditor: React.FC<{
 								Eliminar
 							</Button>
 						) : null}
-					<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
-						Cancelar
-					</Button>
-				</div>
-			</form>
-		</div>
-	</div>,
+					</div>
+				</form>
+			</div>
+		</div>,
 		document.body
 	);
 };
@@ -519,7 +535,7 @@ const Services: React.FC = () => {
 									) : null}
 								</div>
 								<div className="flex items-center gap-3 mt-3">
-									<span className="w-10 h-10 rounded-xl bg-[#1877E8]/12 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+									<span className="w-11 h-11 rounded-2xl bg-[#0C1E36] border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center shrink-0">
 										<CardIcon className="w-5 h-5" />
 									</span>
 									<h2 className="font-display text-lg text-white uppercase tracking-wide">
@@ -530,7 +546,7 @@ const Services: React.FC = () => {
 									{service.description || 'Sin descripción disponible.'}
 								</p>
 								<div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-[#16294A]">
-									<p className="text-sm text-[#E6EDF7]">
+									<p className="font-display text-sm text-[#E6EDF7]">
 										<span className="text-[#5B7295] text-xs uppercase tracking-wider">desde </span>
 										{formatCurrency(service.basePrice || 0)}
 									</p>
