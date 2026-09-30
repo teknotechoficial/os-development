@@ -35,7 +35,7 @@ export async function bootstrap(): Promise<void> {
 				contextIsolation: true,
 			},
 			title: 'TeknoTech Services Cotizador',
-			icon: join(app.getAppPath(), 'assets', 'logo-icon.png'),
+			icon: join(app.getAppPath(), 'assets', 'logo-icon.ico'),
 		});
 
 		mainWindow.webContents.setWindowOpenHandler(({ url }) => {

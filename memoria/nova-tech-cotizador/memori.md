@@ -559,3 +559,18 @@
 **Gotchas**: (1) verify-b13 corrio bien pero la app MUERIO despues (CDP/health caidos) -> los 4 probes restantes dieron "FATAL fetch failed"; relanzar app + DELETE login_attempts y re-ejecutar = todo verde. (2) El runner run-all-b13 se colgo 30min tras FATAL+reintento - mejor lanzar probes uno a uno con timeout individual. (3) El timeout del shell mato el comando a 1800s.
 
 **BD final**: 9 quotes, 6 services, 0 attempts; app cerrada.
+
+### [2026-09-30 14:15:00] - 🔥 Tarea: Icono .ico de la aplicacion (build21)
+
+**Que paso**: El usuario pidio usar `C:\Users\almer\Downloads\TeknoTech-Services.ico` como icono de la app en el escritorio.
+
+**Detalles tecnicos**:
+- Copiado a `assets/logo-icon.ico` (31KB, header 0 0 valido).
+- `electron-builder.config.js` → `win.icon: 'assets/logo-icon.ico'` (mac/linux siguen con png).
+- `src/main/index.ts:38` → BrowserWindow `icon: ...logo-icon.ico`.
+- **Gotcha builder**: el primer `npx electron-builder` del comando组合ado (tsc+build+builder) murio sin avisar (log a medias, setup NO actualizado - quedo en 197KB de un build viejo, timestamp sin cambiar). Solucion: re-ejecutar electron-builder SOLO → exit 0, setup 80.5MB + blockmap. Si el setup no cambia timestamp/size, el builder fallo en silencio.
+- Instalacion NSIS intento1 OK (ASAR 14:04). **Atajo recreado** con WScript.Shell (TargetPath exe, IconLocation `"$exe,0"`) para forzar refresh del icono (Windows cachea iconos por lnk).
+- Verificacion visual: `[Shell.Application]::MinimizeAll()` → CopyFromScreen → `UndoMinimizeAll()` → captura desktop-clean.png confirma atajo con icono navy+lobo. Smoke verify-v5 exit 0, 0 excepciones.
+- BD: attempts/tasks limpias; app cerrada.
+
+**Aprendizaje**: (1) siempre verificar que el setup cambia size+timestamp tras builder (fallo silencioso posible); (2) para refrescar icono de atajo .lnk -> recrear el lnk, Windows no refresca solo; (3) captura de escritorio: MinimizeAll/CopyFromScreen/UndoMinimizeAll.

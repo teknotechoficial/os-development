@@ -21,7 +21,7 @@ module.exports = {
   ],
   win: {
     target: 'nsis',
-    icon: 'assets/logo-icon.png',
+    icon: 'assets/logo-icon.ico',
     artifactName: '${productName} Setup ${version}.${ext}',
   },
   mac: {

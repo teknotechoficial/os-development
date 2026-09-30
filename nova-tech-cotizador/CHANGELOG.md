@@ -38,6 +38,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build21] - 2026-09-30
+
+### Changed
+- Build21 instalada (NSIS intento 1, ASAR 14:04).
+- **Icono de la aplicación**: `assets/logo-icon.ico` (proporcionado por el usuario,
+  `TeknoTech-Services.ico`) aplicado a `win.icon` de electron-builder (atajo del escritorio
+  e instalador) y al `icon` de la ventana (`src/main/index.ts`); atajo del escritorio
+  recreado para refrescar el icono. Verificado visualmente en el escritorio.
+
 ## [1.0.0-build20] - 2026-09-29
 
 ### Added
