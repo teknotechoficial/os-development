@@ -590,3 +590,18 @@
 **Gotchas**: (1) builder puede morir en silencio -> verificar size+timestamp del setup; (2) run-all-b13 se cuelga tras FATAL -> probes individuales con timeout; (3) psql no esta en PATH -> `C:\Program Files\PostgreSQL\16\bin\psql.exe` con PGPASSWORD de DATABASE_URL (.env); (4) .ico del usuario sin canal alfa -> reencuadre por diferencia de color, no por alpha.
 
 **Aprendizaje**: fijar contratos (ids/labels/firmas) y verificarlos por estatica ANTES de compilar ahorra ciclos; 3 tareas seguidas sin agentes = mismo ritmo que un TURBO chico.
+
+### [2026-10-01 17:00:00] - 🔥 Tarea: Widget "Cotizaciones recientes" sin amontonar (build23) - E2E 5/5
+
+**Que paso**: El usuario mostro captura con N° cortado (#00), nombres truncados (Panaderi..., Gimnasi...) y el widget apretado. "Tenias un trabajo y no lo hiciste, solucionalo".
+
+**Detalles tecnicos** (Dashboard.tsx):
+- Grid: `xl:grid-cols-5` con card `col-span-2` (40%) -> `xl:grid-cols-2` (50%, card 491px); ventas `col-span-3` -> columna natural (SVG escala igual).
+- Columnas table-fixed: N° `w-9`->`w-12` + `whitespace-nowrap` (raiz del corte "#00"), TOTAL `w-24`->`w-20` pr-2, ESTADO `pl-3`->`pl-2`, CLIENTE sin `pr-3`; filas `py-3.5`->`py-4`, header `pb-4` (aire).
+- Verificacion dura: `check-widget.js` mide `scrollWidth>clientWidth` por celda -> 0 cortes, 5/5 nombres completos; capturas `b23-widget.png` + `b23-widget-full.png` (CopyFromScreen tras scroll CDP) visuales OK.
+
+**Pipeline**: tsc 0, vite OK, builder exit 0 (setup 80,597,169B @16:26), NSIS intento1 exit=2 (bloqueado), intento2 exit=0 ASAR 16:26 (condicion de verificacion `-gt 16:26` fallo por igualdad de segundos - era OK). E2E: b13 76/76 + c/d/b2/v5 exit 0, 0 excepciones. 13 login_attempts borrados, app+server cerrados.
+
+**Gotchas**: (1) `node -e` en PowerShell rompe con escapes -> siempre archivo .js con workdir; (2) `Page.captureScreenshot` colgo 3x30s tras varios probes -> fallback `SetForegroundWindow` + `CopyFromScreen` funciona siempre; (3) `scrollIntoView({block:'start'})` dejo el widget abajo del corte -> `block:'center'` + shot; (4) my-probe bug: `.find()` sobre array de strings no tiene `.closest` -> buscar elementos h2.
+
+**Aprendizaje**: verificar "sin cortar" con metricas (scrollWidth vs clientWidth) es prueba dura objetivo; la captura visual es solo complemento.

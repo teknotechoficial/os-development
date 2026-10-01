@@ -38,6 +38,28 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build23] - 2026-10-01
+
+### Fixed
+- **Inicio — "Cotizaciones recientes" ya no amontonado**: el número (`#001` se cortaba
+  en `#00` por columna `w-9`) y los nombres de cliente salían truncados
+  (`Panaderí…`, `Gimnasi…`). Cambios: grid del widget `xl:grid-cols-5` (card 40%) →
+  `xl:grid-cols-2` (card 50% ≈ 491px), columna N° `w-9`→`w-12` con
+  `whitespace-nowrap`, TOTAL `w-24`→`w-20`, ESTADO `pl-3`→`pl-2`, CLIENTE sin
+  `pr-3` (gana el ancho real), filas `py-3.5`→`py-4` y header `pb-4` para más aire.
+  Verificado con métricas (0 cortes en N° y cliente, 5/5 filas) y captura
+  `b23-widget-full.png`.
+
+### Changed
+- **Ventas por mes**: ocupa la mitad derecha simétrica (`col-span-3`→columna natural
+  del grid 50/50); el SVG `viewBox` escala sin cambios.
+
+### E2E
+- Suite completa tras instalación NSIS (ASAR 16:26, intento 2): **5/5** —
+  `verify-b13` **76/76**, `verify-c/d/b2/v5` exit 0, 0 excepciones/0 console errors;
+  probe nuevo `check-widget` 5/5 (login, widget, tabla, N° sin cortar, nombres sin
+  truncar).
+
 ## [1.0.0-build22] - 2026-10-01
 
 ### Added
