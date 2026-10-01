@@ -25,10 +25,55 @@ function readFields(body: any) {
   if (body.description !== undefined) out.description = String(body.description);
   if (body.category !== undefined) out.category = typeof body.category === 'string' ? body.category.trim() : body.category;
   if (body.basePrice !== undefined && body.basePrice !== null) out.basePrice = Number(body.basePrice);
-  if (body.icon !== undefined && body.icon !== null) out.icon = String(body.icon).trim();
+  if (body.icon !== undefined && body.icon !== null)
+    out.icon = typeof body.icon === 'string' ? body.icon.trim() : body.icon;
   if (body.active !== undefined && body.active !== null) out.active = !!body.active;
   if (body.sortOrder !== undefined && body.sortOrder !== null) out.sortOrder = Number(body.sortOrder);
   return out;
+}
+
+// Límites de `icon` (coherentes con express.json({ limit: '2mb' }) en server/index.ts):
+// - dataURL de imagen (p.ej. PNG 512x512 en base64): máx. 1.9 MB
+// - `img:` + dataURL (icono personalizado convertido a silueta en el cliente): máx. 1.9 MB total
+// - URL http(s) o ruta relativa (/...): máx. 2048 caracteres
+// - identificador corto (nombres lucide, p.ej. "Globe" / "lucide:globe"): máx. 120 caracteres
+const MAX_ICON_DATA_URL = 1_900_000;
+const MAX_ICON_URL = 2048;
+const MAX_ICON_IDENTIFIER = 120;
+const DATA_URL_ICON_RE = /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/]+={0,2}$/i;
+
+function validateIcon(icon: unknown): string | null {
+  if (icon === undefined || icon === null) return null;
+  if (typeof icon !== 'string') return 'El icono debe ser texto.';
+  const value = icon.trim();
+  if (value === '') return null;
+  if (value.startsWith('img:')) {
+    const inner = value.slice(4).trim();
+    if (!DATA_URL_ICON_RE.test(inner)) {
+      return 'Icono img: inválido: se espera img:data:image/...;base64,...';
+    }
+    if (value.length > MAX_ICON_DATA_URL) return 'El icono supera el tamaño máximo permitido (1.9 MB).';
+    return null;
+  }
+  if (value.startsWith('data:')) {
+    if (!DATA_URL_ICON_RE.test(value)) {
+      return 'Icono dataURL inválido: se espera una imagen en base64 (data:image/...;base64,...).';
+    }
+    if (value.length > MAX_ICON_DATA_URL) return 'El icono supera el tamaño máximo permitido (1.9 MB).';
+    return null;
+  }
+  if (/^https?:\/\/\S+$/i.test(value) || value.startsWith('/')) {
+    if (value.length > MAX_ICON_URL) return 'La URL del icono es demasiado larga (máx. 2048 caracteres).';
+    if (/[\s\p{Cc}\p{Cf}]/u.test(value)) return 'La URL del icono contiene caracteres no válidos.';
+    return null;
+  }
+  if (value.length > MAX_ICON_IDENTIFIER) {
+    return 'El nombre del icono es demasiado largo (máx. 120 caracteres): usá un nombre corto, una URL o un dataURL de imagen.';
+  }
+  if (/[\s\p{Cc}\p{Cf}]/u.test(value)) {
+    return 'Nombre de icono inválido: usá un nombre corto sin espacios (p.ej. "Globe"), una URL o un dataURL de imagen.';
+  }
+  return null;
 }
 
 function validateFields(fields: any, requireAll: boolean): string | null {
@@ -40,6 +85,10 @@ function validateFields(fields: any, requireAll: boolean): string | null {
   }
   if (fields.basePrice !== undefined && !Number.isFinite(fields.basePrice)) return 'Precio base inválido.';
   if (fields.sortOrder !== undefined && !Number.isInteger(fields.sortOrder)) return 'Orden inválido.';
+  if (fields.icon !== undefined) {
+    const iconError = validateIcon(fields.icon);
+    if (iconError) return iconError;
+  }
   return null;
 }
 

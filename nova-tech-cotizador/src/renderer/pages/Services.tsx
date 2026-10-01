@@ -19,6 +19,7 @@ import {
 	Smartphone,
 	Store,
 	Trash2,
+	Upload,
 	Wrench,
 	X,
 } from 'lucide-react';
@@ -121,27 +122,130 @@ const LABEL_CLASS = 'block text-xs uppercase tracking-[0.12em] text-[#8FA6C4] fo
 const SELECT_CLASS =
 	'w-full bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none';
 
+const IMG_ICON_PREFIX = 'img:';
+const ICON_PIXELS = 128;
+const ICON_RGB: [number, number, number] = [96, 165, 250]; /* #60A5FA, igual que los trazos lucide */
+const MAX_ICON_IMAGE_BYTES = 2 * 1024 * 1024;
+
+const readAsDataUrl = (file: Blob): Promise<string> =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+		reader.readAsDataURL(file);
+	});
+
+const loadImageElement = (src: string): Promise<HTMLImageElement> =>
+	new Promise((resolve, reject) => {
+		const img = new Image();
+		img.onload = () => resolve(img);
+		img.onerror = () => reject(new Error('No se pudo decodificar la imagen'));
+		img.src = src;
+	});
+
+/*
+ * Convierte cualquier imagen en una silueta azul estilo lucide (stroke #60A5FA):
+ * canvas 128x128, dibujo fit-contain centrado, alpha derivado del fondo detectado
+ * en las 4 esquinas del dibujo (claro >235 -> 255-luminancia, oscuro <40 ->
+ * luminancia, mixto o transparente -> alpha original) y TODOS los pixeles
+ * repintados con el color del tema. Devuelve un dataURL PNG.
+ */
+const processIconImage = async (file: File): Promise<string> => {
+	const source = await loadImageElement(await readAsDataUrl(file));
+	const srcWidth = source.naturalWidth || source.width;
+	const srcHeight = source.naturalHeight || source.height;
+	if (!srcWidth || !srcHeight) throw new Error('Imagen vacía');
+
+	const canvas = document.createElement('canvas');
+	canvas.width = ICON_PIXELS;
+	canvas.height = ICON_PIXELS;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('Canvas no disponible');
+	ctx.clearRect(0, 0, ICON_PIXELS, ICON_PIXELS);
+
+	const scale = Math.min(ICON_PIXELS / srcWidth, ICON_PIXELS / srcHeight);
+	const drawWidth = Math.max(1, Math.round(srcWidth * scale));
+	const drawHeight = Math.max(1, Math.round(srcHeight * scale));
+	const offsetX = Math.floor((ICON_PIXELS - drawWidth) / 2);
+	const offsetY = Math.floor((ICON_PIXELS - drawHeight) / 2);
+	ctx.drawImage(source, offsetX, offsetY, drawWidth, drawHeight);
+
+	const frame = ctx.getImageData(0, 0, ICON_PIXELS, ICON_PIXELS);
+	const data = frame.data;
+	const lumaAt = (x: number, y: number) => {
+		const i = (y * ICON_PIXELS + x) * 4;
+		return (data[i] + data[i + 1] + data[i + 2]) / 3;
+	};
+	const alphaAt = (x: number, y: number) => data[(y * ICON_PIXELS + x) * 4 + 3];
+	const corners: [number, number][] = [
+		[offsetX, offsetY],
+		[offsetX + drawWidth - 1, offsetY],
+		[offsetX, offsetY + drawHeight - 1],
+		[offsetX + drawWidth - 1, offsetY + drawHeight - 1],
+	];
+	const cornerLuma = corners.reduce((sum, [x, y]) => sum + lumaAt(x, y), 0) / corners.length;
+	const cornerAlpha = corners.reduce((sum, [x, y]) => sum + alphaAt(x, y), 0) / corners.length;
+
+	/* Fondo transparente o mixto: se conserva la alpha original. */
+	const mode: 'light' | 'dark' | 'keep' =
+		cornerAlpha < 128 ? 'keep' : cornerLuma > 235 ? 'light' : cornerLuma < 40 ? 'dark' : 'keep';
+
+	for (let i = 0; i < data.length; i += 4) {
+		const originalAlpha = data[i + 3];
+		const luma = (data[i] + data[i + 1] + data[i + 2]) / 3;
+		let alpha = originalAlpha;
+		if (mode === 'light') alpha = Math.round((255 - luma) * (originalAlpha / 255));
+		else if (mode === 'dark') alpha = Math.round(luma * (originalAlpha / 255));
+		data[i] = ICON_RGB[0];
+		data[i + 1] = ICON_RGB[1];
+		data[i + 2] = ICON_RGB[2];
+		data[i + 3] = Math.max(0, Math.min(255, alpha));
+	}
+	ctx.putImageData(frame, 0, 0);
+	return canvas.toDataURL('image/png');
+};
+
+/* 'img:<dataURL>' -> dataURL listo para <img>; admite tambien dataURL/http legados. */
+const imageIconSrc = (value?: string | null): string | null => {
+	if (!value) return null;
+	if (value.startsWith(IMG_ICON_PREFIX)) return value.slice(IMG_ICON_PREFIX.length) || null;
+	if (/^data:image\//i.test(value) || /^https?:\/\//i.test(value)) return value;
+	return null;
+};
+
+const toStoredIcon = (src: string) => (src.startsWith('data:') ? IMG_ICON_PREFIX + src : src);
+
 const ServiceEditor: React.FC<{
 	editor: EditorState;
 	onClose: () => void;
 	onSaved: () => void;
 }> = ({ editor, onClose, onSaved }) => {
 	const isEdit = editor.mode === 'edit';
-	const [form, setForm] = React.useState<FormState>(() =>
-		isEdit && editor.service
-			? {
-					name: editor.service.name,
-					description: editor.service.description || '',
-					category: editor.service.category || 'web',
-					basePrice: String(editor.service.basePrice ?? 0),
-					icon: editor.service.icon || CATEGORY_ICON_NAMES[editor.service.category || ''] || 'Boxes',
-					sortOrder: String(editor.service.sortOrder ?? 0),
-					active: editor.service.active !== false,
-				}
-			: { ...EMPTY_FORM }
-	);
+	const [form, setForm] = React.useState<FormState>(() => {
+		if (isEdit && editor.service) {
+			const storedIcon = editor.service.icon || '';
+			return {
+				name: editor.service.name,
+				description: editor.service.description || '',
+				category: editor.service.category || 'web',
+				basePrice: String(editor.service.basePrice ?? 0),
+				icon:
+					storedIcon && !imageIconSrc(storedIcon)
+						? storedIcon
+						: CATEGORY_ICON_NAMES[editor.service.category || ''] || 'Boxes',
+				sortOrder: String(editor.service.sortOrder ?? 0),
+				active: editor.service.active !== false,
+			};
+		}
+		return { ...EMPTY_FORM };
+	});
 	const [busy, setBusy] = React.useState(false);
 	const [error, setError] = React.useState('');
+	const [imageData, setImageData] = React.useState<string | null>(() =>
+		isEdit ? imageIconSrc(editor.service?.icon) : null
+	);
+	const [logoError, setLogoError] = React.useState('');
+	const [logoBusy, setLogoBusy] = React.useState(false);
 	const PreviewIcon = ICONS[form.icon] || CATEGORY_ICONS[form.category] || Boxes;
 	const isKnownCategory = Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, form.category);
 	const categorySelectValue = isKnownCategory
@@ -150,6 +254,34 @@ const ServiceEditor: React.FC<{
 
 	const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
 		setForm((prev) => ({ ...prev, [key]: value }));
+
+	const handleIconFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files && event.target.files[0];
+		event.target.value = '';
+		if (!file) return;
+		setLogoError('');
+		if (!file.type || !file.type.startsWith('image/')) {
+			setLogoError('El archivo debe ser una imagen (PNG, JPG, SVG o WEBP).');
+			return;
+		}
+		if (file.size > MAX_ICON_IMAGE_BYTES) {
+			setLogoError('La imagen supera el máximo permitido de 2 MB.');
+			return;
+		}
+		setLogoBusy(true);
+		try {
+			setImageData(await processIconImage(file));
+		} catch {
+			setLogoError('No se pudo procesar la imagen. Intenta con otro archivo.');
+		} finally {
+			setLogoBusy(false);
+		}
+	};
+
+	const clearIconImage = () => {
+		setImageData(null);
+		setLogoError('');
+	};
 
 	const save = async (event: React.FormEvent) => {
 		event.preventDefault();
@@ -173,7 +305,7 @@ const ServiceEditor: React.FC<{
 				description: form.description.trim(),
 				category: form.category.trim(),
 				basePrice: Number(form.basePrice),
-				icon: form.icon,
+				icon: imageData ? toStoredIcon(imageData) : form.icon,
 				sortOrder: Number(form.sortOrder) || 0,
 				active: form.active,
 			};
@@ -256,15 +388,58 @@ const ServiceEditor: React.FC<{
 						</div>
 					) : null}
 
-					<div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-						<div className="sm:col-span-2 flex flex-col gap-4">
-							<div className="flex flex-col items-center gap-3 rounded-2xl bg-[#0C1E36] border border-[#1877E8]/30 px-5 py-6 hover-lift transition-shadow">
-								<span className="w-20 h-20 rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center">
-									<PreviewIcon className="w-10 h-10" />
+					<div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
+						<div className="sm:col-span-2 space-y-4">
+							<p className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295]">
+								Icono del servicio
+							</p>
+
+							<div className="rounded-2xl bg-[#0C1E36] border border-[#1877E8]/30 px-4 py-4 flex flex-col items-center gap-3">
+								<span className="w-32 h-32 shrink-0 overflow-hidden rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center">
+									{imageData ? (
+										<img src={imageData} alt="" className="w-full h-full object-contain" />
+									) : (
+										<PreviewIcon className="w-16 h-16" />
+									)}
 								</span>
 								<span className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295]">
 									Vista previa
 								</span>
+								<label
+									htmlFor="svc-logo-input"
+									className={
+										'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-colors ' +
+										(logoBusy
+											? 'bg-[#0C1E36] border-[#1C3557] text-[#8FA6C4] opacity-70 cursor-wait'
+											: 'bg-[#1877E8]/12 border-[#1877E8]/30 text-[#60A5FA] hover:bg-[#1877E8]/20')
+									}
+								>
+									<Upload className="w-4 h-4" />
+									SUBIR IMAGEN
+									<input
+										id="svc-logo-input"
+										type="file"
+										accept="image/*"
+										className="sr-only"
+										disabled={logoBusy}
+										onChange={handleIconFile}
+									/>
+								</label>
+								{imageData ? (
+									<button
+										type="button"
+										onClick={clearIconImage}
+										className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#1C3557] text-xs uppercase tracking-[0.12em] font-semibold text-[#8FA6C4] hover:text-white hover:bg-[#14294A] transition-colors"
+									>
+										<X className="w-3.5 h-3.5" />
+										QUITAR IMAGEN
+									</button>
+								) : null}
+								{logoError ? (
+									<p role="alert" className="text-xs text-[#FB7185] text-center">
+										{logoError}
+									</p>
+								) : null}
 							</div>
 
 							<div>
@@ -274,7 +449,11 @@ const ServiceEditor: React.FC<{
 								<select
 									id="svc-icon"
 									value={form.icon}
-									onChange={(e) => set('icon', e.target.value)}
+									onChange={(e) => {
+										set('icon', e.target.value);
+										setImageData(null);
+										setLogoError('');
+									}}
 									className={SELECT_CLASS}
 								>
 									{ICON_NAMES.map((name) => (
@@ -283,6 +462,11 @@ const ServiceEditor: React.FC<{
 										</option>
 									))}
 								</select>
+								{imageData ? (
+									<p className="text-[10px] uppercase tracking-[0.15em] text-[#60A5FA] mt-1.5">
+										Imagen personalizada activa
+									</p>
+								) : null}
 							</div>
 
 							<div>
@@ -300,7 +484,7 @@ const ServiceEditor: React.FC<{
 								/>
 							</div>
 
-							<label className="flex items-start gap-3 text-sm text-[#D6E2F2] cursor-pointer select-none pt-1">
+							<label className="flex items-start gap-3 text-sm text-[#D6E2F2] cursor-pointer select-none">
 								<input
 									type="checkbox"
 									checked={form.active}
@@ -311,7 +495,11 @@ const ServiceEditor: React.FC<{
 							</label>
 						</div>
 
-						<div className="sm:col-span-3 flex flex-col gap-4">
+						<div className="sm:col-span-3 space-y-4">
+							<p className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295]">
+								Información básica
+							</p>
+
 							<div>
 								<label htmlFor="svc-name" className={LABEL_CLASS}>
 									Nombre
@@ -364,6 +552,7 @@ const ServiceEditor: React.FC<{
 										/>
 									) : null}
 								</div>
+
 								<div>
 									<label htmlFor="svc-price" className={LABEL_CLASS}>
 										Precio base (USD)
@@ -397,7 +586,7 @@ const ServiceEditor: React.FC<{
 					</div>
 
 					<div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-[#16294A]">
-						<Button type="submit" variant="primary" disabled={busy}>
+						<Button type="submit" variant="primary" disabled={busy || logoBusy}>
 							{busy ? 'GUARDANDO…' : isEdit ? 'GUARDAR CAMBIOS' : 'CREAR SERVICIO'}
 						</Button>
 						<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
@@ -508,6 +697,7 @@ const Services: React.FC = () => {
 				<div className="stagger-in grid md:grid-cols-2 xl:grid-cols-3 gap-6">
 					{visible.map((service) => {
 						const CardIcon = iconOf(service);
+						const cardImageSrc = imageIconSrc(service.icon);
 						return (
 							<Card
 								key={service.id}
@@ -535,8 +725,16 @@ const Services: React.FC = () => {
 									) : null}
 								</div>
 								<div className="flex items-center gap-3 mt-3">
-									<span className="w-11 h-11 rounded-2xl bg-[#0C1E36] border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center shrink-0">
-										<CardIcon className="w-5 h-5" />
+									<span className="w-11 h-11 rounded-2xl bg-[#0C1E36] border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center shrink-0 overflow-hidden">
+										{cardImageSrc ? (
+											<img
+												src={cardImageSrc}
+												alt=""
+												className="w-full h-full object-contain"
+											/>
+										) : (
+											<CardIcon className="w-5 h-5" />
+										)}
 									</span>
 									<h2 className="font-display text-lg text-white uppercase tracking-wide">
 										{service.name}

@@ -667,10 +667,10 @@ const TeamManager: React.FC = () => {
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="manage-team-title"
-						className="bg-[#10233E] border border-[#1C3557] rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-y-auto p-6 shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)] animate-scale-in"
+						className="bg-[#10233E] border border-[#1C3557] rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)] animate-scale-in"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<div className="flex items-start justify-between gap-4 mb-5 pb-4 border-b border-[#16294A]">
+						<div className="shrink-0 flex items-start justify-between gap-4 px-6 pt-6 mb-5 pb-4 border-b border-[#16294A]">
 							<div className="flex items-center gap-3 min-w-0">
 								<span className={SECTION_ICON}>
 									<Settings className="h-5 w-5" />
@@ -699,20 +699,20 @@ const TeamManager: React.FC = () => {
 								</Button>
 							) : null}
 						</div>
-						{loading ? (
-							<div className="flex justify-center py-10">
-								<Spinner />
-							</div>
-						) : users.length === 0 ? (
-							<EmptyState
-								icon={Users}
-								title="Sin miembros"
-								description="Aún no hay miembros registrados"
-							/>
-						) : (
-							<div className="overflow-x-auto">
+						<div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto px-6 pb-1 scroll-thin">
+							{loading ? (
+								<div className="flex justify-center py-10">
+									<Spinner />
+								</div>
+							) : users.length === 0 ? (
+								<EmptyState
+									icon={Users}
+									title="Sin miembros"
+									description="Aún no hay miembros registrados"
+								/>
+							) : (
 								<table className="w-full text-sm">
-									<thead className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295] border-b border-[#1C3557] pb-3">
+									<thead className="text-[10px] uppercase tracking-[0.18em] text-[#5B7295] border-b border-[#1C3557] pb-3 sticky top-0 bg-[#10233E] z-10">
 										<tr>
 											<th className="text-left font-medium pb-3 pr-4">MIEMBRO</th>
 											<th className="text-left font-medium pb-3 pr-4">CÓDIGO</th>
@@ -801,9 +801,9 @@ const TeamManager: React.FC = () => {
 										})}
 									</tbody>
 								</table>
-							</div>
-						)}
-						<div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-4 mt-4 bg-[#10233E] border-t border-[#16294A] flex items-center justify-between gap-3">
+							)}
+						</div>
+						<div className="shrink-0 mt-auto px-6 py-4 bg-[#10233E] border-t border-[#16294A] flex items-center justify-between gap-3">
 							<p className="text-[11px] uppercase tracking-[0.16em] text-[#5B7295]">
 								{users.length} {users.length === 1 ? 'miembro' : 'miembros'} en el equipo
 							</p>

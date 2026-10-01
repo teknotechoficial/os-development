@@ -18,7 +18,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+// Límite subido de 100kb (default de express.json) a 2mb: el editor de servicios
+// guarda en `icon` un dataURL PNG de 512x512 (cientos de KB) y settings.company_logo
+// también admite dataURL. Ver server/routes/services.ts para la validación de `icon`.
+app.use(express.json({ limit: '2mb' }));
 
 app.use('/api', apiRouter);
 app.use('/api', authRouter);

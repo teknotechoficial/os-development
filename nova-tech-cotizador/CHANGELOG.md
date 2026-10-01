@@ -38,6 +38,34 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build22] - 2026-10-01
+
+### Added
+- **Editor de servicios con imagen personalizada**: layout reorganizado en 2 columnas
+  (izq "ICONO DEL SERVICIO" con preview 128px + botones **SUBIR IMAGEN** / **QUITAR
+  IMAGEN** + select de icono + orden + activo; der "INFORMACIÓN BÁSICA" con nombre,
+  categoría+precio y descripción). La imagen se procesa en canvas 128×128: detecta fondo
+  (claro → alpha por luminancia, oscuro → alpha por luminancia inversa) y repinta la
+  silueta a azul `#60A5FA` estilo lucide; se persiste como `icon = 'img:<dataURL>'`
+  (prefijo `IMG_ICON_PREFIX`, server acepta `img:` y validación relajada en
+  `server/routes/services.ts`, `express.json` limit a 2mb en `server/index.ts`).
+
+### Changed
+- **Modal "Gestionar equipo" con scroll**: panel `max-h-[85vh] flex-col` — header
+  shrink-0 + área con `flex-1 min-h-0 overflow-y-auto` con thead sticky + footer
+  "MIEMBROS EN EL EQUIPO / CERRAR" shrink-0 anclado al piso (ya no se solapa con la
+  tabla al tener pocos/muchos miembros).
+- **`.ico` reencuadrado "al piso"**: los frames de `assets/logo-icon.ico` tenían fondo
+  sólido `#003366` (sin transparencia); el contenido se detectó por diferencia con el
+  color de fondo, se movió al borde inferior (gap 3–60 → 1–5px) y se centró en X
+  preservando el fondo opaco. 7 frames validados; backup en
+  `assets/logo-icon-user-original.ico`. Verificado visualmente en atajo del escritorio
+  y taskbar.
+
+### Fixed
+- NSIS: instalador de build22 (ASAR 14:30) reemplazó el de build21 en la instalación
+  existente (intento 1, sin bloqueos).
+
 ## [1.0.0-build21] - 2026-09-30
 
 ### Changed

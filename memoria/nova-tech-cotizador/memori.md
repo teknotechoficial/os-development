@@ -574,3 +574,19 @@
 - BD: attempts/tasks limpias; app cerrada.
 
 **Aprendizaje**: (1) siempre verificar que el setup cambia size+timestamp tras builder (fallo silencioso posible); (2) para refrescar icono de atajo .lnk -> recrear el lnk, Windows no refresca solo; (3) captura de escritorio: MinimizeAll/CopyFromScreen/UndoMinimizeAll.
+
+### [2026-10-01 14:50:00] - 🔥 Tarea: Modal equipo con scroll + .ico al piso + editor servicios con imagen personalizada (build22) - E2E 5/5
+
+**Que paso**: 3 peticiones del usuario ejecutadas directamente (sin subagentes, contratos verificados por estatica antes del build): (1) modal "Gestionar equipo" con scroll, (2) el .ico "al piso" (el lobo quedaba muy arriba con fondo solido abajo), (3) en editor de servicios poder subir imagen personalizada para el icono.
+
+**Detalles tecnicos**:
+- **TeamManager.tsx**: panel modal `max-h-[85vh] flex-col` -> header shrink-0 + area `flex-1 min-h-0 overflow-y-auto scroll-thin` con thead sticky + footer shrink-0 (contador "N MIEMBROS EN EL EQUIPO" + CERRAR) anclado al piso sin solape.
+- **.ico reencuadrado**: frames NO tenian transparencia (fondo solido `#003366`) -> contenido detectado por diferencia con color de fondo, movido a borde inferior (gap 3-60 -> 1-5px), centrado X, fondo opaco preservado; 7 frames validados, 26,196B. Backup `assets/logo-icon-user-original.ico` (31,101B, trackeado). Verificado en captura escritorio: atajo + taskbar con lobo al piso.
+- **Services.tsx**: layout 2 columnas nuevo: izq "ICONO DEL SERVICIO" (preview 128 + **#svc-logo-input SUBIR IMAGEN** + QUITAR IMAGEN + #svc-icon + #svc-order + checkbox activo); der "INFORMACION BASICA" (#svc-name, #svc-category/#svc-price, #svc-desc). `processIconImage` canvas 128x128: detecta fondo por esquinas (>235 claro -> alpha=255-lum; <40 oscuro -> alpha=lum) y repinta silueta a `#60A5FA` estilo lucide. Persistencia `icon='img:<dataURL>'` (IMG_ICON_PREFIX + toStoredIcon/imageIconSrc).
+- **Server**: `server/routes/services.ts` acepta prefijo `img:` (validacion relajada); `server/index.ts` express.json limit 2mb.
+- **Verificacion previa al build**: contratos probes por estatica diff vs HEAD -> 17/18 VERDE (el "rojo" = conteo de selects sin assert, codigo intacto). tsc 0, vite OK, builder22 exit 0 (setup 80,596,846B 14:30), NSIS intento 1 (ASAR 10/01 14:30), atajo recreado. **E2E 5/5: b13 76/76 + c/d/b2/v5 exit 0, 0 excepciones.** Capturas b13-equipo-modal.png (scroll + footer al piso) y b13-servicios-editor.png (layout nuevo + SUBIR IMAGEN) verificadas.
+- **BD final**: 0 attempts (11 borrados), 5 quotes demo, 6 services, 0 tasks; app + server cerrados.
+
+**Gotchas**: (1) builder puede morir en silencio -> verificar size+timestamp del setup; (2) run-all-b13 se cuelga tras FATAL -> probes individuales con timeout; (3) psql no esta en PATH -> `C:\Program Files\PostgreSQL\16\bin\psql.exe` con PGPASSWORD de DATABASE_URL (.env); (4) .ico del usuario sin canal alfa -> reencuadre por diferencia de color, no por alpha.
+
+**Aprendizaje**: fijar contratos (ids/labels/firmas) y verificarlos por estatica ANTES de compilar ahorra ciclos; 3 tareas seguidas sin agentes = mismo ritmo que un TURBO chico.
