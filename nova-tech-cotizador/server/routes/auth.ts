@@ -317,4 +317,40 @@ router.post('/auth/change', async (req: any, res: any) => {
   }
 });
 
+// GET /api/auth/access-log - historial de intentos de acceso (login_attempts)
+router.get('/auth/access-log', async (req: any, res: any) => {
+  const db = getPool();
+  const rawParam = req.query.identifiers;
+  const raw = Array.isArray(rawParam)
+    ? rawParam.join(',')
+    : rawParam !== undefined && rawParam !== null
+      ? String(rawParam)
+      : '';
+  const identifiers = raw
+    .split(',')
+    .map((s: string) => s.trim().toLowerCase())
+    .filter((s: string) => s !== '');
+
+  if (identifiers.length === 0) {
+    return res.status(200).json({ items: [] });
+  }
+
+  try {
+    const r = await db.query(
+      `SELECT id, identifier, success, ip, created_at FROM login_attempts
+       WHERE identifier = ANY($1::text[]) ORDER BY created_at DESC LIMIT 12`,
+      [identifiers]
+    );
+    const items = r.rows.map((row: any) => {
+      const item = toCamel(row);
+      if (item.createdAt instanceof Date) item.createdAt = item.createdAt.toISOString();
+      return item;
+    });
+    return res.status(200).json({ items });
+  } catch (err) {
+    console.error('[auth access-log]', err);
+    return res.status(500).json({ error: 'Error en servidor' });
+  }
+});
+
 export default router;

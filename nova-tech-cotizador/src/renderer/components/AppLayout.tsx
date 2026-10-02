@@ -75,11 +75,67 @@ const initials = (name: string) =>
     .join('')
     .toUpperCase();
 
+interface LocalPrefs {
+	sound: boolean;
+	notifyDesktop: boolean;
+}
+
+const DEFAULT_PREFS: LocalPrefs = { sound: false, notifyDesktop: false };
+
+const readPrefs = (): LocalPrefs => {
+	try {
+		const raw = window.localStorage.getItem('nt_prefs');
+		if (!raw) return { ...DEFAULT_PREFS };
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PREFS };
+		return {
+			sound: typeof parsed.sound === 'boolean' ? parsed.sound : DEFAULT_PREFS.sound,
+			notifyDesktop:
+				typeof parsed.notifyDesktop === 'boolean'
+					? parsed.notifyDesktop
+					: DEFAULT_PREFS.notifyDesktop,
+		};
+	} catch {
+		return { ...DEFAULT_PREFS };
+	}
+};
+
+let audioContext: AudioContext | null = null;
+
+const playBeep = () => {
+	try {
+		if (!audioContext) {
+			audioContext = new AudioContext();
+		}
+		const context = audioContext;
+		if (context.state === 'suspended') {
+			context.resume().catch(() => undefined);
+		}
+		const oscillator = context.createOscillator();
+		const gain = context.createGain();
+		oscillator.type = 'sine';
+		oscillator.frequency.value = 880;
+		gain.gain.value = 0.05;
+		oscillator.connect(gain);
+		gain.connect(context.destination);
+		oscillator.onended = () => {
+			oscillator.disconnect();
+			gain.disconnect();
+		};
+		const startedAt = context.currentTime;
+		oscillator.start(startedAt);
+		oscillator.stop(startedAt + 0.15);
+	} catch {
+		return;
+	}
+};
+
 const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [unread, setUnread] = React.useState(0);
+	const lastUnreadRef = React.useRef(0);
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const searchRef = React.useRef<HTMLDivElement>(null);
@@ -103,11 +159,32 @@ const AppLayout: React.FC = () => {
     fetch(apiUrl('/api/notifications?userId=' + userId))
       .then((res) => res.json())
       .then((data) => {
-        if (cancelled || !Array.isArray(data)) return;
-        const count = data.filter(
-          (n: any) => n && (n.read === false || n.isRead === false)
-        ).length;
-        setUnread(count);
+			if (cancelled || !Array.isArray(data)) return;
+			const count = data.filter(
+				(n: any) => n && (n.read === false || n.isRead === false)
+			).length;
+			const isNew = count > lastUnreadRef.current;
+			lastUnreadRef.current = count;
+			setUnread(count);
+			if (!isNew) return;
+			const prefs = readPrefs();
+			if (prefs.sound) {
+				playBeep();
+			}
+			if (
+				prefs.notifyDesktop &&
+				typeof Notification !== 'undefined' &&
+				Notification.permission === 'granted'
+			) {
+				const newest = data.find((n: any) => n && (n.read === false || n.isRead === false));
+				const title = (newest && newest.title) || 'TeknoTech Services';
+				const body = (newest && newest.message) || 'Tenés una notificación nueva';
+				try {
+					new Notification(title, { body });
+				} catch {
+					return;
+				}
+			}
       })
       .catch(() => undefined);
     return () => {

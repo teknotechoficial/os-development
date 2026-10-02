@@ -38,6 +38,43 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build24] - 2026-10-02
+
+### Added
+- **Ajustes recreado con más funciones** (tabs Cuenta/Empresa/Correos intactas,
+  sin "resumen", 1278 líneas): hero "Mi perfil" con avatar/badges y "EDITAR PERFIL"
+  (ProfileModal), **Actividad de accesos** real (`GET /api/auth/access-log?identifiers=`,
+  fechas ISO → `es-ES` + hora local, filas OK/FALLÓ en verde/rojo), **Copia de
+  seguridad** (EXPORTAR/IMPORTAR AJUSTES JSON con descarga real vía Blob y file
+  picker que mergea `nt_prefs` completo), **Vista previa de cotización** reactiva
+  en Empresa (mock con iniciales del logo), **Estado del correo** en Correos
+  (badge Encendido/Apagado + host/puerto/remitente + resultado `nt_mail_test`),
+  Preferencias extendidas: "Alertas del sistema" + **PROBAR ALERTA**
+  (`new Notification`), Sonido + **PROBAR SONIDO** (WebAudio 880Hz), y selector
+  **Formato de fecha en Inicio** (`#settings-date-format`, default `es-ES`)
+  consumido por Inicio/Cotizaciones recientes (`readDateFormat`/`formatQuoteDate`).
+- **AppLayout**: beep WebAudio + notificación de escritorio al incrementar
+  notificaciones no leídas según `nt_prefs.sound/notifyDesktop` (default off →
+  comportamiento previo intacto).
+- `GET /api/auth/access-log` en `server/routes/auth.ts`; identificadores en
+  minúsculas (email de login con clave, código de login con PIN) para que coincidan
+  con lo que guarda `login_attempts` en el lockout.
+
+### Changed
+- UI oscura: superficies `#0C1E36`, bordes `#16294A`, espaciado `py-4`, selectores
+  y botones en línea con el tema; contratos literales preservados
+  (`ACTUALIZAR CREDENCIALES`, `GUARDAR CAMBIOS`, `ENVIAR CORREO DE PRUEBA`,
+  `SUBIR LOGO`, `Quitar logo`, etc.).
+
+### E2E
+- Suite tras instalación NSIS (ASAR 15:41, intento 3 — builder 2 fallos previos:
+  timeout 600s y `spawn UNKNOWN` en wine, resuelto corriendo `npx electron-builder`
+  directo): **6/6** — `verify-b13` **78/78** (+5.7 accesos, +5.8 formato fecha),
+  `verify-settings-new` **24/24** (nuevo: tabs, hero, actividad, backup, preview,
+  estado correo, alertas/sonido/fecha), `verify-c/d/b2/v5` exit 0, 0 excepciones.
+- Capturas `b24-ajustes-{cuenta,empresa,correos}.png` + scroll Preferencias
+  verificadas visualmente (tab activa `#1877E8` confirmada por píxeles).
+
 ## [1.0.0-build23] - 2026-10-01
 
 ### Fixed

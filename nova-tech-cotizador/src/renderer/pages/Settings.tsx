@@ -1,17 +1,36 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Building2, Check, KeyRound, Mail, Server, Sliders, Trash2, Upload } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+	AlertCircle,
+	Bell,
+	Building2,
+	Check,
+	KeyRound,
+	Mail,
+	Server,
+	Sliders,
+	Trash2,
+	Upload,
+	User,
+	UserCog,
+	Volume2,
+} from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { apiUrl } from '@/renderer/api';
 import { COMPANY, MINIMUM_MARGIN, ROLE_LABELS } from '@/shared/constants';
 import { Button, Card, PageHeader, Skeleton, Spinner } from '@/renderer/components/ui';
+import ProfileModal from '@/renderer/components/ProfileModal';
+import AccessLogCard from '@/renderer/components/settings/AccessLogCard';
+import BackupCard from '@/renderer/components/settings/BackupCard';
+import QuotePreviewCard from '@/renderer/components/settings/QuotePreviewCard';
+import MailStatusCard from '@/renderer/components/settings/MailStatusCard';
 
 const INPUT_CLASS =
 	'w-full px-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm';
 const LABEL_CLASS =
 	'block text-xs uppercase tracking-[0.12em] text-[#8FA6C4] font-semibold mb-1.5';
 const CARD_CLASS = 'bg-[#10233E] border border-[#1C3557] rounded-2xl';
-const SECTION_TITLE = 'font-display text-sm uppercase tracking-[0.12em] text-white mb-4';
+const SECTION_TITLE = 'font-display text-sm uppercase tracking-[0.12em] text-white';
 
 type TabId = 'cuenta' | 'empresa' | 'correos';
 
@@ -52,22 +71,38 @@ type BannerState = { type: 'success' | 'error'; message: string };
 const PREFS_STORAGE_KEY = 'nt_prefs';
 const RECENT_LIMIT_OPTIONS = [5, 10, 15];
 
-interface UserPrefs {
+type UserPrefs = {
 	reducedMotion: boolean;
 	recentLimit: number;
-}
+	dateFormat: 'es-ES' | 'iso';
+	notifyDesktop: boolean;
+	sound: boolean;
+};
 
-const DEFAULT_PREFS: UserPrefs = { reducedMotion: false, recentLimit: 10 };
+const DEFAULT_PREFS: UserPrefs = {
+	reducedMotion: false,
+	recentLimit: 10,
+	dateFormat: 'es-ES',
+	notifyDesktop: false,
+	sound: false,
+};
 
 const readUserPrefs = (): UserPrefs => {
 	try {
 		const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
 		if (!raw) return { ...DEFAULT_PREFS };
-		const parsed = JSON.parse(raw) as Partial<UserPrefs>;
+		const parsed = JSON.parse(raw) as Partial<UserPrefs> | null;
+		if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PREFS };
 		const limit = typeof parsed.recentLimit === 'number' ? parsed.recentLimit : DEFAULT_PREFS.recentLimit;
 		return {
 			reducedMotion: parsed.reducedMotion === true,
 			recentLimit: RECENT_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : DEFAULT_PREFS.recentLimit,
+			dateFormat:
+				parsed.dateFormat === 'es-ES' || parsed.dateFormat === 'iso'
+					? parsed.dateFormat
+					: DEFAULT_PREFS.dateFormat,
+			notifyDesktop: parsed.notifyDesktop === true,
+			sound: parsed.sound === true,
 		};
 	} catch {
 		return { ...DEFAULT_PREFS };
@@ -89,6 +124,16 @@ const removeUserPrefs = () => {
 		/* localStorage no disponible */
 	}
 };
+
+const ROLE_BADGE_CLASS: Record<string, string> = {
+	super_admin: 'bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#FBBF24]',
+	gerente: 'bg-[#8B5CF6]/15 border border-[#8B5CF6]/40 text-[#A78BFA]',
+	vendedor: 'bg-[#1877E8]/20 border border-[#1877E8]/30 text-[#60A5FA]',
+	closer: 'bg-[#059669]/15 border border-[#059669]/40 text-[#34D399]',
+	desarrollador: 'bg-[#EC4899]/15 border border-[#EC4899]/30 text-[#F472B6]',
+};
+
+const ROLE_BADGE_FALLBACK = 'bg-[#0C1E36] border border-[#1C3557] text-[#8FA6C4]';
 
 const LOGO_SIZE = 512;
 const LOGO_RADIUS = Math.round(LOGO_SIZE * 0.18);
@@ -148,6 +193,34 @@ const processLogoToAppStyle = (img: HTMLImageElement): string | null => {
 
 	return canvas.toDataURL('image/png');
 };
+
+const mergeSettings = (prev: SettingsData, data: Record<string, any>): SettingsData => ({
+	companyName: typeof data.companyName === 'string' ? data.companyName : prev.companyName,
+	companyLogo:
+		typeof data.companyLogo === 'string' && data.companyLogo
+			? data.companyLogo
+			: prev.companyLogo,
+	phone: typeof data.phone === 'string' ? data.phone : prev.phone,
+	email: typeof data.email === 'string' ? data.email : prev.email,
+	paymentTitular:
+		typeof data.paymentTitular === 'string' ? data.paymentTitular : prev.paymentTitular,
+	paymentAlias:
+		typeof data.paymentAlias === 'string' ? data.paymentAlias : prev.paymentAlias,
+	marginMinimum:
+		typeof data.marginMinimum === 'number' ? data.marginMinimum : prev.marginMinimum,
+	smtpHost: typeof data.smtpHost === 'string' ? data.smtpHost : prev.smtpHost,
+	smtpPort:
+		typeof data.smtpPort === 'number'
+			? String(data.smtpPort)
+			: typeof data.smtpPort === 'string'
+				? data.smtpPort
+				: prev.smtpPort,
+	smtpUser: typeof data.smtpUser === 'string' ? data.smtpUser : prev.smtpUser,
+	smtpPass: typeof data.smtpPass === 'string' ? data.smtpPass : prev.smtpPass,
+	smtpFrom: typeof data.smtpFrom === 'string' ? data.smtpFrom : prev.smtpFrom,
+	smtpEnabled:
+		typeof data.smtpEnabled === 'boolean' ? data.smtpEnabled : prev.smtpEnabled,
+});
 
 interface FieldProps {
 	id: string;
@@ -221,6 +294,34 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label }) => (
 	</button>
 );
 
+interface SwitchProps {
+	checked: boolean;
+	onChange: (value: boolean) => void;
+	ariaLabel: string;
+}
+
+const Switch: React.FC<SwitchProps> = ({ checked, onChange, ariaLabel }) => (
+	<button
+		type="button"
+		onClick={() => onChange(!checked)}
+		aria-pressed={checked}
+		aria-label={ariaLabel}
+		className="flex items-center gap-3 focus:outline-none shrink-0"
+	>
+		<span
+			className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+				checked ? 'bg-[#1877E8]' : 'bg-[#1C3557]'
+			}`}
+		>
+			<span
+				className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+					checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
+				}`}
+			/>
+		</span>
+	</button>
+);
+
 const Settings: React.FC = () => {
 	const { user } = useAuth();
 	const { users, fetchTeam } = useTeam();
@@ -250,6 +351,14 @@ const Settings: React.FC = () => {
 	const [prefsSaved, setPrefsSaved] = useState(false);
 	const prefsSavedTimer = useRef<number | null>(null);
 
+	const [notifyDenied, setNotifyDenied] = useState(false);
+	const [notifyError, setNotifyError] = useState<string | null>(null);
+	const [soundError, setSoundError] = useState<string | null>(null);
+
+	const [accessRefresh, setAccessRefresh] = useState(0);
+	const [mailTick, setMailTick] = useState(0);
+	const [profileOpen, setProfileOpen] = useState(false);
+
 	const logoFileRef = useRef<HTMLInputElement>(null);
 	const [logoError, setLogoError] = useState<string | null>(null);
 
@@ -270,49 +379,28 @@ const Settings: React.FC = () => {
 		if (users.length === 0) void fetchTeam();
 	}, [users.length, fetchTeam]);
 
+	const fetchSettings = useCallback(async (isCurrent?: () => boolean) => {
+		try {
+			const response = await fetch(apiUrl('/api/settings'));
+			if (!response.ok) return;
+			const data = await response.json().catch(() => null);
+			if (!data || typeof data !== 'object') return;
+			if (isCurrent && !isCurrent()) return;
+			setSettings((prev) => mergeSettings(prev, data as Record<string, any>));
+		} catch {
+			/* sin conexión: se conservan los valores actuales */
+		} finally {
+			if (!isCurrent || isCurrent()) setLoading(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		let active = true;
-		fetch(apiUrl('/api/settings'))
-			.then((res) => (res.ok ? res.json() : null))
-			.then((data: any) => {
-				if (!active || !data || typeof data !== 'object') return;
-				setSettings((prev) => ({
-					companyName:
-						typeof data.companyName === 'string' ? data.companyName : prev.companyName,
-					companyLogo:
-						typeof data.companyLogo === 'string' && data.companyLogo
-							? data.companyLogo
-							: prev.companyLogo,
-					phone: typeof data.phone === 'string' ? data.phone : prev.phone,
-					email: typeof data.email === 'string' ? data.email : prev.email,
-					paymentTitular:
-						typeof data.paymentTitular === 'string' ? data.paymentTitular : prev.paymentTitular,
-					paymentAlias:
-						typeof data.paymentAlias === 'string' ? data.paymentAlias : prev.paymentAlias,
-					marginMinimum:
-						typeof data.marginMinimum === 'number' ? data.marginMinimum : prev.marginMinimum,
-					smtpHost: typeof data.smtpHost === 'string' ? data.smtpHost : prev.smtpHost,
-					smtpPort:
-						typeof data.smtpPort === 'number'
-							? String(data.smtpPort)
-							: typeof data.smtpPort === 'string'
-								? data.smtpPort
-								: prev.smtpPort,
-					smtpUser: typeof data.smtpUser === 'string' ? data.smtpUser : prev.smtpUser,
-					smtpPass: typeof data.smtpPass === 'string' ? data.smtpPass : prev.smtpPass,
-					smtpFrom: typeof data.smtpFrom === 'string' ? data.smtpFrom : prev.smtpFrom,
-					smtpEnabled:
-						typeof data.smtpEnabled === 'boolean' ? data.smtpEnabled : prev.smtpEnabled,
-				}));
-			})
-			.catch(() => undefined)
-			.finally(() => {
-				if (active) setLoading(false);
-			});
+		void fetchSettings(() => active);
 		return () => {
 			active = false;
 		};
-	}, []);
+	}, [fetchSettings]);
 
 	const handleSave = async (event: React.FormEvent) => {
 		event.preventDefault();
@@ -366,6 +454,15 @@ const Settings: React.FC = () => {
 			if (!response.ok || data.error || data.success === false) {
 				throw new Error(data.error || 'No se pudo enviar el correo de prueba');
 			}
+			try {
+				window.localStorage.setItem(
+					'nt_mail_test',
+					JSON.stringify({ ok: true, at: new Date().toISOString(), message: 'Correo de prueba enviado' }),
+				);
+			} catch {
+				/* localStorage no disponible */
+			}
+			setMailTick((tick) => tick + 1);
 			setBanner({ type: 'success', message: 'Correo de prueba enviado' });
 			window.setTimeout(() => setBanner(null), 4000);
 		} catch (error) {
@@ -429,6 +526,7 @@ const Settings: React.FC = () => {
 			setCredCurrent('');
 			setCredNext('');
 			setCredConfirm('');
+			setAccessRefresh((tick) => tick + 1);
 		} catch (error) {
 			setCredBanner({
 				type: 'error',
@@ -473,6 +571,66 @@ const Settings: React.FC = () => {
 		flashPrefsSaved();
 	};
 
+	const requestNotifyPermission = async () => {
+		try {
+			if (typeof Notification === 'undefined') return;
+			const result = await Notification.requestPermission();
+			setNotifyDenied(result === 'denied');
+		} catch {
+			/* API de notificaciones no disponible */
+		}
+	};
+
+	const handleNotifyToggle = (value: boolean) => {
+		applyPrefs({ ...prefs, notifyDesktop: value });
+		setNotifyError(null);
+		if (!value) {
+			setNotifyDenied(false);
+			return;
+		}
+		void requestNotifyPermission();
+	};
+
+	const handleTestNotification = () => {
+		setNotifyError(null);
+		try {
+			new Notification('TeknoTech Services', {
+				body: 'Alerta de prueba. Todo funciona correctamente.',
+			});
+		} catch {
+			setNotifyError('No se pudieron mostrar las alertas');
+		}
+	};
+
+	const handleSoundToggle = (value: boolean) => {
+		applyPrefs({ ...prefs, sound: value });
+		setSoundError(null);
+	};
+
+	const handleTestSound = () => {
+		setSoundError(null);
+		try {
+			const AudioContextCtor =
+				window.AudioContext || (window as any).webkitAudioContext;
+			if (!AudioContextCtor) throw new Error('AudioContext no disponible');
+			const context: AudioContext = new AudioContextCtor();
+			const oscillator = context.createOscillator();
+			const gain = context.createGain();
+			oscillator.type = 'sine';
+			oscillator.frequency.value = 880;
+			gain.gain.value = 0.05;
+			oscillator.connect(gain);
+			gain.connect(context.destination);
+			oscillator.start();
+			oscillator.stop(context.currentTime + 0.15);
+			oscillator.onended = () => {
+				context.close().catch(() => undefined);
+			};
+		} catch {
+			setSoundError('No se pudo reproducir el sonido');
+		}
+	};
+
 	const handleLogoFile = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		event.target.value = '';
@@ -513,6 +671,10 @@ const Settings: React.FC = () => {
 		: [{ id: 'cuenta', label: 'Cuenta' }];
 
 	const logoInputValue = settings.companyLogo.startsWith('data:') ? '' : settings.companyLogo;
+
+	const roleBadgeClass = user?.role
+		? ROLE_BADGE_CLASS[user.role] || ROLE_BADGE_FALLBACK
+		: ROLE_BADGE_FALLBACK;
 
 	const settingsSkeleton = (
 		<div className="py-6 space-y-6">
@@ -572,15 +734,25 @@ const Settings: React.FC = () => {
 					className="space-y-6"
 				>
 					<Card className={`p-6 ${CARD_CLASS}`}>
-						<div className="flex items-center gap-4">
+						<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+							<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+								<User className="w-4 h-4" />
+							</span>
+							<div>
+								<h2 className={SECTION_TITLE}>Mi perfil</h2>
+								<p className="text-xs text-[#5B7295]">Tu cuenta de acceso personal</p>
+							</div>
+						</div>
+
+						<div className="flex flex-wrap items-center gap-4">
 							{avatarUrl ? (
 								<img
 									src={avatarUrl}
 									alt={user?.name || 'Avatar'}
-									className="w-14 h-14 rounded-2xl object-cover border border-[#1877E8]/30"
+									className="w-20 h-20 rounded-full object-cover border border-[#1877E8]/30 ring-2 ring-[#1877E8]/30 shrink-0"
 								/>
 							) : (
-								<span className="w-14 h-14 rounded-2xl bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] font-display text-xl font-bold flex items-center justify-center shrink-0 uppercase">
+								<span className="w-20 h-20 rounded-full bg-[#1877E8]/12 border border-[#1877E8]/30 ring-2 ring-[#1877E8]/25 text-[#60A5FA] font-display text-2xl font-bold flex items-center justify-center shrink-0 uppercase">
 									{(user?.name || '?')
 										.split(' ')
 										.filter(Boolean)
@@ -589,12 +761,14 @@ const Settings: React.FC = () => {
 										.join('')}
 								</span>
 							)}
-							<div className="min-w-0">
+							<div className="min-w-0 flex-1">
 								<p className="font-display text-lg text-white uppercase tracking-wide truncate">
 									{user?.name || '—'}
 								</p>
 								<div className="flex flex-wrap items-center gap-2 mt-1.5">
-									<span className="text-[10px] uppercase tracking-widest bg-[#1877E8]/20 text-[#60A5FA] border border-[#1877E8]/30 rounded-full px-2.5 py-0.5">
+									<span
+										className={`text-[10px] uppercase tracking-widest rounded-full px-2.5 py-0.5 border ${roleBadgeClass}`}
+									>
 										{user?.role ? ROLE_LABELS[user.role] || user.role : '—'}
 									</span>
 									{user?.code ? (
@@ -607,73 +781,86 @@ const Settings: React.FC = () => {
 									) : null}
 								</div>
 							</div>
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								onClick={() => setProfileOpen(true)}
+							>
+								<UserCog className="w-4 h-4" />
+								EDITAR PERFIL
+							</Button>
 						</div>
 					</Card>
 
-					<Card className={`p-6 ${CARD_CLASS}`}>
-						<div className="flex items-center gap-3 mb-4">
-							<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
-								<KeyRound className="w-4 h-4" />
-							</span>
-							<div>
-								<h2 className={SECTION_TITLE.replace(' mb-4', '')}>Cambiar credenciales</h2>
-								<p className="text-xs text-[#5B7295]">
-									Actualizá tu contraseña o PIN de acceso
-								</p>
-							</div>
-						</div>
-
-						{credBanner ? (
-							<div className="mb-4">
-								<Banner banner={credBanner} />
-							</div>
-						) : null}
-
-						<form onSubmit={handleChangeCredentials} className="space-y-4">
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div className="grid lg:grid-cols-2 gap-6">
+						<Card className={`p-6 ${CARD_CLASS}`}>
+							<div className="flex items-center gap-3 mb-4">
+								<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+									<KeyRound className="w-4 h-4" />
+								</span>
 								<div>
-									<label htmlFor="cred-field" className={LABEL_CLASS}>
-										Tipo de credencial
-									</label>
-									<select
-										id="cred-field"
-										value={credField}
-										onChange={(e) => setCredField(e.target.value as 'password' | 'pin')}
-										className={INPUT_CLASS}
-									>
-										<option value="password">Contraseña</option>
-										<option value="pin">PIN</option>
-									</select>
+									<h2 className={SECTION_TITLE}>Cambiar credenciales</h2>
+									<p className="text-xs text-[#5B7295]">
+										Actualizá tu contraseña o PIN de acceso
+									</p>
 								</div>
-								<Field
-									id="cred-current"
-									label="Actual"
-									type="password"
-									value={credCurrent}
-									onChange={setCredCurrent}
-								/>
-								<Field
-									id="cred-next"
-									label="Nueva"
-									type="password"
-									value={credNext}
-									onChange={setCredNext}
-								/>
-								<Field
-									id="cred-confirm"
-									label="Confirmar"
-									type="password"
-									value={credConfirm}
-									onChange={setCredConfirm}
-								/>
 							</div>
-							<div className="pt-1">
-								<Button type="submit" variant="primary" disabled={credSaving}>
-									{credSaving ? 'ACTUALIZANDO…' : 'ACTUALIZAR CREDENCIALES'}
-								</Button>
-							</div>
-						</form>
-					</Card>
+
+							{credBanner ? (
+								<div className="mb-4">
+									<Banner banner={credBanner} />
+								</div>
+							) : null}
+
+							<form onSubmit={handleChangeCredentials} className="space-y-4">
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label htmlFor="cred-field" className={LABEL_CLASS}>
+											Tipo de credencial
+										</label>
+										<select
+											id="cred-field"
+											value={credField}
+											onChange={(e) => setCredField(e.target.value as 'password' | 'pin')}
+											className={INPUT_CLASS}
+										>
+											<option value="password">Contraseña</option>
+											<option value="pin">PIN</option>
+										</select>
+									</div>
+									<Field
+										id="cred-current"
+										label="Actual"
+										type="password"
+										value={credCurrent}
+										onChange={setCredCurrent}
+									/>
+									<Field
+										id="cred-next"
+										label="Nueva"
+										type="password"
+										value={credNext}
+										onChange={setCredNext}
+									/>
+									<Field
+										id="cred-confirm"
+										label="Confirmar"
+										type="password"
+										value={credConfirm}
+										onChange={setCredConfirm}
+									/>
+								</div>
+								<div className="pt-1">
+									<Button type="submit" variant="primary" disabled={credSaving}>
+										{credSaving ? 'ACTUALIZANDO…' : 'ACTUALIZAR CREDENCIALES'}
+									</Button>
+								</div>
+							</form>
+						</Card>
+
+						<AccessLogCard email={user?.email} code={user?.code} refreshKey={accessRefresh} />
+					</div>
 
 					<Card className={`p-6 ${CARD_CLASS}`}>
 						<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
@@ -681,9 +868,7 @@ const Settings: React.FC = () => {
 								<Sliders className="w-4 h-4" />
 							</span>
 							<div>
-								<h2 className={SECTION_TITLE.replace(' mb-4', '')}>
-									Preferencias de la aplicación
-								</h2>
+								<h2 className={SECTION_TITLE}>Preferencias de la aplicación</h2>
 								<p className="text-xs text-[#5B7295]">
 									Personalizá cómo se comporta el sistema para vos
 								</p>
@@ -700,6 +885,64 @@ const Settings: React.FC = () => {
 								<p className="text-xs text-[#5B7295] mt-2 pl-12">
 									Desactiva transiciones y efectos visuales en toda la interfaz
 								</p>
+							</div>
+
+							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
+								<div className="flex items-center justify-between gap-3">
+									<span className="text-sm text-[#D6E2F2] font-medium">
+										Alertas del sistema
+									</span>
+									<Switch
+										checked={prefs.notifyDesktop}
+										onChange={handleNotifyToggle}
+										ariaLabel="Alertas del sistema"
+									/>
+								</div>
+								<p className="text-xs text-[#5B7295] mt-2">
+									Permití alertas de escritorio del sistema
+								</p>
+								{notifyDenied ? (
+									<p className="text-xs text-[#FB7185] mt-2">Permiso de alertas denegado</p>
+								) : null}
+								{notifyError ? (
+									<p className="text-xs text-[#FB7185] mt-2">{notifyError}</p>
+								) : null}
+								<div className="mt-3">
+									<Button
+										type="button"
+										variant="secondary"
+										size="sm"
+										onClick={handleTestNotification}
+									>
+										<Bell className="w-4 h-4" />
+										PROBAR ALERTA
+									</Button>
+								</div>
+							</div>
+
+							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
+								<div className="flex items-center justify-between gap-3">
+									<span className="text-sm text-[#D6E2F2] font-medium">
+										Sonido de notificaciones
+									</span>
+									<Switch
+										checked={prefs.sound}
+										onChange={handleSoundToggle}
+										ariaLabel="Sonido de notificaciones"
+									/>
+								</div>
+								<p className="text-xs text-[#5B7295] mt-2">
+									Reproduce un aviso cuando llega una notificación nueva
+								</p>
+								{soundError ? (
+									<p className="text-xs text-[#FB7185] mt-2">{soundError}</p>
+								) : null}
+								<div className="mt-3">
+									<Button type="button" variant="secondary" size="sm" onClick={handleTestSound}>
+										<Volume2 className="w-4 h-4" />
+										PROBAR SONIDO
+									</Button>
+								</div>
 							</div>
 
 							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
@@ -720,6 +963,29 @@ const Settings: React.FC = () => {
 								</select>
 								<p className="text-xs text-[#5B7295] mt-2">
 									Cuántas cotizaciones recientes mostrar en el Dashboard
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
+								<label htmlFor="settings-date-format" className={LABEL_CLASS}>
+									Formato de fecha en Inicio
+								</label>
+								<select
+									id="settings-date-format"
+									value={prefs.dateFormat}
+									onChange={(e) =>
+										applyPrefs({
+											...prefs,
+											dateFormat: e.target.value as UserPrefs['dateFormat'],
+										})
+									}
+									className={INPUT_CLASS}
+								>
+									<option value="es-ES">DD/MM/AAAA (27/9/2026)</option>
+									<option value="iso">AAAA-MM-DD (2026-09-27)</option>
+								</select>
+								<p className="text-xs text-[#5B7295] mt-2">
+									Cómo se muestran las fechas en el Inicio
 								</p>
 							</div>
 
@@ -746,140 +1012,155 @@ const Settings: React.FC = () => {
 					{loading ? (
 						settingsSkeleton
 					) : (
-						<form onSubmit={handleSave} className="space-y-6">
-							<Card className={`p-6 ${CARD_CLASS}`}>
-								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
-									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
-										<Building2 className="w-4 h-4" />
-									</span>
-									<div>
-										<h2 className={SECTION_TITLE.replace(' mb-4', '')}>Datos de la empresa</h2>
-										<p className="text-xs text-[#5B7295]">
-											Información que aparece en las cotizaciones
-										</p>
-									</div>
-								</div>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<Field
-										id="settings-company"
-										label="Nombre de la empresa"
-										value={settings.companyName}
-										onChange={updateField('companyName')}
-									/>
-									<Field
-										id="settings-phone"
-										label="Teléfono"
-										value={settings.phone}
-										onChange={updateField('phone')}
-									/>
-									<Field
-										id="settings-email"
-										label="Correo electrónico"
-										type="email"
-										value={settings.email}
-										onChange={updateField('email')}
-									/>
-									<Field
-										id="settings-alias"
-										label="Alias de pago"
-										value={settings.paymentAlias}
-										onChange={updateField('paymentAlias')}
-									/>
-									<Field
-										id="settings-titular"
-										label="Titular de cuenta de pago"
-										value={settings.paymentTitular}
-										onChange={updateField('paymentTitular')}
-									/>
-									<div>
-										<label htmlFor="settings-margin" className={LABEL_CLASS}>
-											Margen mínimo (%)
-										</label>
-										<input
-											id="settings-margin"
-											type="number"
-											min={0}
-											step="any"
-											value={settings.marginMinimum}
-											onChange={(e) => handleMargin(e.target.value)}
-											className={INPUT_CLASS}
-										/>
-									</div>
-									<div className="sm:col-span-2">
-										<span className={LABEL_CLASS}>Logo de la empresa</span>
-										<div className="flex items-center gap-4">
-											{settings.companyLogo ? (
-												<img
-													src={settings.companyLogo}
-													alt="Logo de la empresa"
-													className="w-16 h-16 rounded-xl object-cover border border-[#1C3557] bg-[#0C1E36] shrink-0"
-												/>
-											) : (
-												<span className="w-16 h-16 rounded-xl bg-[#0C1E36] border border-[#1C3557] text-[#5B7295] flex items-center justify-center shrink-0">
-													<Building2 className="w-6 h-6" />
-												</span>
-											)}
-											<div className="flex flex-wrap items-center gap-2">
-												<input
-													ref={logoFileRef}
-													type="file"
-													accept="image/*"
-													className="hidden"
-													onChange={handleLogoFile}
-												/>
-												<Button
-													type="button"
-													variant="secondary"
-													size="sm"
-													onClick={() => logoFileRef.current?.click()}
-												>
-													<Upload className="w-4 h-4" />
-													SUBIR LOGO
-												</Button>
-												{settings.companyLogo ? (
-													<Button
-														type="button"
-														variant="ghost"
-														size="sm"
-														onClick={() => {
-															setField('companyLogo', '');
-															setLogoError(null);
-														}}
-													>
-														<Trash2 className="w-4 h-4" />
-														Quitar logo
-													</Button>
-												) : null}
-											</div>
+						<>
+							<form onSubmit={handleSave} className="space-y-6">
+								<Card className={`p-6 ${CARD_CLASS}`}>
+									<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+										<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+											<Building2 className="w-4 h-4" />
+										</span>
+										<div>
+											<h2 className={SECTION_TITLE}>Datos de la empresa</h2>
+											<p className="text-xs text-[#5B7295]">
+												Información que aparece en las cotizaciones
+											</p>
 										</div>
-										{logoError ? (
-											<p className="text-xs text-[#FB7185] mt-2">{logoError}</p>
-										) : null}
-										<div className="mt-3">
-											<label htmlFor="settings-logo" className={LABEL_CLASS}>
-												o pegá una URL
+									</div>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<Field
+											id="settings-company"
+											label="Nombre de la empresa"
+											value={settings.companyName}
+											onChange={updateField('companyName')}
+										/>
+										<Field
+											id="settings-phone"
+											label="Teléfono"
+											value={settings.phone}
+											onChange={updateField('phone')}
+										/>
+										<Field
+											id="settings-email"
+											label="Correo electrónico"
+											type="email"
+											value={settings.email}
+											onChange={updateField('email')}
+										/>
+										<Field
+											id="settings-alias"
+											label="Alias de pago"
+											value={settings.paymentAlias}
+											onChange={updateField('paymentAlias')}
+										/>
+										<Field
+											id="settings-titular"
+											label="Titular de cuenta de pago"
+											value={settings.paymentTitular}
+											onChange={updateField('paymentTitular')}
+										/>
+										<div>
+											<label htmlFor="settings-margin" className={LABEL_CLASS}>
+												Margen mínimo (%)
 											</label>
 											<input
-												id="settings-logo"
-												type="url"
-												placeholder="https://..."
-												value={logoInputValue}
-												onChange={(e) => {
-													setField('companyLogo', e.target.value);
-													setLogoError(null);
-												}}
+												id="settings-margin"
+												type="number"
+												min={0}
+												step="any"
+												value={settings.marginMinimum}
+												onChange={(e) => handleMargin(e.target.value)}
 												className={INPUT_CLASS}
 											/>
 										</div>
+										<div className="sm:col-span-2">
+											<span className={LABEL_CLASS}>Logo de la empresa</span>
+											<div className="flex items-center gap-4">
+												{settings.companyLogo ? (
+													<img
+														src={settings.companyLogo}
+														alt="Logo de la empresa"
+														className="w-16 h-16 rounded-xl object-cover border border-[#1C3557] bg-[#0C1E36] shrink-0"
+													/>
+												) : (
+													<span className="w-16 h-16 rounded-xl bg-[#0C1E36] border border-[#1C3557] text-[#5B7295] flex items-center justify-center shrink-0">
+														<Building2 className="w-6 h-6" />
+													</span>
+												)}
+												<div className="flex flex-wrap items-center gap-2">
+													<input
+														ref={logoFileRef}
+														type="file"
+														accept="image/*"
+														className="hidden"
+														onChange={handleLogoFile}
+													/>
+													<Button
+														type="button"
+														variant="secondary"
+														size="sm"
+														onClick={() => logoFileRef.current?.click()}
+													>
+														<Upload className="w-4 h-4" />
+														SUBIR LOGO
+													</Button>
+													{settings.companyLogo ? (
+														<Button
+															type="button"
+															variant="ghost"
+															size="sm"
+															onClick={() => {
+																setField('companyLogo', '');
+																setLogoError(null);
+															}}
+														>
+															<Trash2 className="w-4 h-4" />
+															Quitar logo
+														</Button>
+													) : null}
+												</div>
+											</div>
+											{logoError ? (
+												<p className="text-xs text-[#FB7185] mt-2">{logoError}</p>
+											) : null}
+											<div className="mt-3">
+												<label htmlFor="settings-logo" className={LABEL_CLASS}>
+													o pegá una URL
+												</label>
+												<input
+													id="settings-logo"
+													type="url"
+													placeholder="https://..."
+													value={logoInputValue}
+													onChange={(e) => {
+														setField('companyLogo', e.target.value);
+														setLogoError(null);
+													}}
+													className={INPUT_CLASS}
+												/>
+											</div>
+										</div>
 									</div>
+								</Card>
+								<div className="flex justify-end pt-1">
+									<Button type="submit" variant="primary" disabled={saving}>
+										{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+									</Button>
 								</div>
-							</Card>
-							<div className="flex justify-end pt-1">
-								<Button type="submit" variant="primary" disabled={saving}>
-									{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
-								</Button>
+							</form>
+
+							<div className="grid md:grid-cols-2 gap-6">
+								<QuotePreviewCard
+									companyName={settings.companyName}
+									companyLogo={settings.companyLogo}
+									phone={settings.phone}
+									email={settings.email}
+									paymentAlias={settings.paymentAlias}
+									paymentTitular={settings.paymentTitular}
+									marginMinimum={settings.marginMinimum}
+								/>
+								<BackupCard onImported={() => { void fetchSettings(); }} />
 							</div>
-						</form>
+						</>
 					)}
 				</div>
 			) : null}
@@ -894,90 +1175,102 @@ const Settings: React.FC = () => {
 					{loading ? (
 						settingsSkeleton
 					) : (
-						<form onSubmit={handleSave} className="space-y-6">
-							<Card className={`p-6 ${CARD_CLASS}`}>
-								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
-									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
-										<Server className="w-4 h-4" />
-									</span>
-									<div>
-										<h2 className={SECTION_TITLE.replace(' mb-4', '')}>Correo de recuperación (SMTP)</h2>
+						<div className="grid md:grid-cols-2 gap-6">
+							<form onSubmit={handleSave} className="space-y-6">
+								<Card className={`p-6 ${CARD_CLASS}`}>
+									<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+										<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+											<Server className="w-4 h-4" />
+										</span>
+										<div>
+											<h2 className={SECTION_TITLE}>Correo de recuperación (SMTP)</h2>
+											<p className="text-xs text-[#5B7295]">
+												Envío de códigos para recuperar acceso
+											</p>
+										</div>
+									</div>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<Field
+											id="settings-smtp-host"
+											label="Servidor"
+											placeholder="smtp.gmail.com"
+											value={settings.smtpHost}
+											onChange={updateField('smtpHost')}
+										/>
+										<Field
+											id="settings-smtp-port"
+											label="Puerto"
+											type="number"
+											placeholder="465"
+											value={settings.smtpPort}
+											onChange={updateField('smtpPort')}
+										/>
+										<Field
+											id="settings-smtp-user"
+											label="Usuario"
+											value={settings.smtpUser}
+											onChange={updateField('smtpUser')}
+										/>
+										<Field
+											id="settings-smtp-pass"
+											label="Contraseña de aplicación"
+											type="password"
+											value={settings.smtpPass}
+											onChange={updateField('smtpPass')}
+										/>
+										<Field
+											id="settings-smtp-from"
+											label="Correo origen"
+											type="email"
+											value={settings.smtpFrom}
+											onChange={updateField('smtpFrom')}
+										/>
+									</div>
+									<div className="mt-5 flex flex-col gap-4">
+										<Toggle
+											checked={settings.smtpEnabled}
+											onChange={(value) =>
+												setSettings((prev) => ({ ...prev, smtpEnabled: value }))
+											}
+											label="Habilitar envío de correos"
+										/>
 										<p className="text-xs text-[#5B7295]">
-											Envío de códigos para recuperar acceso
+											Usá una &quot;Contraseña de app&quot; de Google (myaccount.google.com/apppasswords).
+											Es gratis.
 										</p>
+										<div>
+											<Button
+												type="button"
+												variant="secondary"
+												onClick={handleTestMail}
+												disabled={testingMail}
+											>
+												<Mail className="w-4 h-4" />
+												{testingMail ? 'ENVIANDO…' : 'ENVIAR CORREO DE PRUEBA'}
+											</Button>
+										</div>
 									</div>
+								</Card>
+								<div className="flex justify-end pt-1">
+									<Button type="submit" variant="primary" disabled={saving}>
+										{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+									</Button>
 								</div>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<Field
-										id="settings-smtp-host"
-										label="Servidor"
-										placeholder="smtp.gmail.com"
-										value={settings.smtpHost}
-										onChange={updateField('smtpHost')}
-									/>
-									<Field
-										id="settings-smtp-port"
-										label="Puerto"
-										type="number"
-										placeholder="465"
-										value={settings.smtpPort}
-										onChange={updateField('smtpPort')}
-									/>
-									<Field
-										id="settings-smtp-user"
-										label="Usuario"
-										value={settings.smtpUser}
-										onChange={updateField('smtpUser')}
-									/>
-									<Field
-										id="settings-smtp-pass"
-										label="Contraseña de aplicación"
-										type="password"
-										value={settings.smtpPass}
-										onChange={updateField('smtpPass')}
-									/>
-									<Field
-										id="settings-smtp-from"
-										label="Correo origen"
-										type="email"
-										value={settings.smtpFrom}
-										onChange={updateField('smtpFrom')}
-									/>
-								</div>
-								<div className="mt-5 flex flex-col gap-4">
-									<Toggle
-										checked={settings.smtpEnabled}
-										onChange={(value) =>
-											setSettings((prev) => ({ ...prev, smtpEnabled: value }))
-										}
-										label="Habilitar envío de correos"
-									/>
-									<p className="text-xs text-[#5B7295]">
-										Usá una &quot;Contraseña de app&quot; de Google (myaccount.google.com/apppasswords).
-										Es gratis.
-									</p>
-									<div>
-										<Button
-											type="button"
-											variant="secondary"
-											onClick={handleTestMail}
-											disabled={testingMail}
-										>
-											<Mail className="w-4 h-4" />
-											{testingMail ? 'ENVIANDO…' : 'ENVIAR CORREO DE PRUEBA'}
-										</Button>
-									</div>
-								</div>
-							</Card>
-							<div className="flex justify-end pt-1">
-								<Button type="submit" variant="primary" disabled={saving}>
-									{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
-								</Button>
-							</div>
-						</form>
+							</form>
+
+							<MailStatusCard
+								enabled={settings.smtpEnabled}
+								host={settings.smtpHost}
+								port={settings.smtpPort}
+								from={settings.smtpFrom}
+								refreshTick={mailTick}
+							/>
+						</div>
 					)}
 				</div>
 			) : null}
+
+			{profileOpen ? <ProfileModal onClose={() => setProfileOpen(false)} /> : null}
 		</div>
 	);
 };

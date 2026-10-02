@@ -15,6 +15,10 @@ const RECENT_PREFS_KEY = 'nt_prefs';
 const RECENT_LIMIT_DEFAULT = 10;
 const RECENT_LIMIT_MAX = 50;
 
+type DateFormat = 'es-ES' | 'iso';
+
+const DATE_FORMAT_DEFAULT: DateFormat = 'es-ES';
+
 const readRecentLimit = (): number => {
 	try {
 		const raw = window.localStorage.getItem(RECENT_PREFS_KEY);
@@ -25,6 +29,18 @@ const readRecentLimit = (): number => {
 		return Math.min(Math.floor(value), RECENT_LIMIT_MAX);
 	} catch {
 		return RECENT_LIMIT_DEFAULT;
+	}
+};
+
+const readDateFormat = (): DateFormat => {
+	try {
+		const raw = window.localStorage.getItem(RECENT_PREFS_KEY);
+		if (!raw) return DATE_FORMAT_DEFAULT;
+		const parsed = JSON.parse(raw) as { dateFormat?: unknown } | null;
+		const value = parsed?.dateFormat;
+		return value === 'es-ES' || value === 'iso' ? value : DATE_FORMAT_DEFAULT;
+	} catch {
+		return DATE_FORMAT_DEFAULT;
 	}
 };
 
@@ -162,6 +178,17 @@ const Dashboard: React.FC = () => {
 		.reduce((acc, q) => acc + q.finalPrice, 0);
 
 	const recentLimit = useMemo(() => readRecentLimit(), []);
+	const dateFormat = useMemo(() => readDateFormat(), []);
+
+	const formatQuoteDate = (value: string | Date): string => {
+		const d = value instanceof Date ? value : new Date(value);
+		if (dateFormat === 'iso') {
+			const mm = String(d.getMonth() + 1).padStart(2, '0');
+			const dd = String(d.getDate()).padStart(2, '0');
+			return `${d.getFullYear()}-${mm}-${dd}`;
+		}
+		return d.toLocaleDateString('es-ES');
+	};
 
 	const recentQuotes = [...quotes]
 		.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -388,7 +415,7 @@ const Dashboard: React.FC = () => {
 											<td className="py-4 min-w-0">
 												<p className="truncate font-medium text-[#E6EDF7]">{quote.clientName}</p>
 												<p className="mt-1 text-[11px] leading-tight text-[#8FA6C4] truncate">
-													{new Date(quote.createdAt).toLocaleDateString('es-ES')}
+													{formatQuoteDate(quote.createdAt)}
 												</p>
 											</td>
 											<td className="py-4 w-20 pr-2 text-right whitespace-nowrap tabular-nums font-medium text-white">
