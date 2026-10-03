@@ -38,6 +38,71 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build27] - 2026-10-03
+
+### Added
+- **Ajustes totalmente configurables** (ajustes.piso/margen, nombre del programa,
+  equipo y sistema — todo con efecto real):
+  - **Piso de venta configurable**: nueva columna `settings.margin_minimum`
+    (default 250, rango -5→400); `POST /api/quotes` lee el piso de la BD (deja
+    de usar el hardcode 250), `NewQuote` lo lee vía `GET /api/settings/public`
+    y `calculateFinalPrice(base, floor)` lo recibe por parámetro;
+    `minSaleMessage(floor)` muestra "El mínimo de venta es de {formatCurrency}".
+  - **Moneda configurable** (`settings.currency`: USD/EUR/ARS/GBP): endpoint
+    `GET /api/settings/public` (sin secretos SMTP) que expone companyName,
+    currency, notifInterval, marginMinimum, teamDefaultRole/Title, phone,
+    email, paymentAlias/Titular; `formatCurrency` en `validators.ts` con
+    símbolo+locale por moneda (USD $ es-AR, EUR € es-ES, ARS AR$ es-AR,
+    GBP £ en-GB) leyendo `nt_prefs.currency` vía `globalThis.localStorage`
+    (seguro para tsconfig.main); AppLayout sincroniza la preferencia guardada
+    al iniciar; PriceBreakdown/QuotePreviewCard/QuoteDetail en la moneda elegida.
+  - **Nombre del programa configurable** (`settings.companyName`): sidebar
+    partido en 2 líneas (primera palabra / resto en mayúsculas), footer,
+    título de notificaciones y título de ventana Electron
+    (`${companyName} Cotizador` vía IPC `set-title` con reintentos).
+  - **Panel Equipo** (tab de 5): altas por defecto `team_default_role` +
+    `team_default_title`, tabla de miembros con cargo/estado, fila CEO con
+    badge de solo-lectura y `PUT /api/team` aceptando `isActive` con guarda
+    400 al desactivar al CEO (RETURNING con `is_active`).
+  - **Panel Sistema**: moneda, intervalo de alertas (5–300 s → poll de
+    notificaciones dinámico), intentos de login (3–20) y bloqueo (1–120 min)
+    con mensaje 423 dinámico en `auth.ts` (`getLockoutConfig` + ventana
+    `NOW() - ($2::int * INTERVAL '1 minute')`).
+  - Migraciones ×3 (`database/schema.ts`, `server/db.ts`,
+    `src/main/database.ts`): 6 columnas nuevas en `settings`.
+- **Equipo reorganizado por puesto**: `TeamManager` agrupa "Miembros del
+  equipo" por `ROLE_ORDER` (CEO → Gerente → Vendedor → Closer → Desarrollador)
+  con headers jerárquicos + conteo, orden alfabético interno; alta con campo
+  "Cargo" (`#member-title`) que aplica el default del rol en la BD.
+
+### Changed
+- **Ajustes pasa de 3 a 5 tabs**: `Cuenta / Empresa / Equipo / Sistema /
+  Correos`; subtítulo "Empresa, equipo, sistema, correos y tu cuenta";
+  probes `verify-b13` (5.3/5.5a) y `verify-settings-new` (1.1/2.1)
+  actualizados de 3 → 5 tabs; contrato sin palabra "resumen" intacto.
+- `minSaleMessage` y el chip "Mínimo de venta" del preview usan
+  `formatCurrency` (sin "$250 USD" hardcodeado) para ser coherentes con la
+  moneda display.
+
+### E2E
+- Suite completa tras build (NSIS exit 0 sin bloqueos, ASAR 40,840,077 @
+  01:25, tsc 0/0, vite OK): **212/212 checks verdes** — `verify-b27`
+  **37/37** (API+validaciones, piso 300/suma/250, equipo isActive/cargo/CEO,
+  5 tabs, moneda EUR end-to-end, nombre de programa, agrupado por puesto,
+  restauración total), `verify-b13` **78/78**, `verify-b25` **40/40**,
+  `verify-settings-new` **24/24**, `verify-b25-server` **33/33**,
+  `verify-c/d/b2/v5` exit 0, 0 excepciones/0 console errors.
+- Incidente resuelto: las credenciales de gerente/vendedor quedaron en estado
+  seed (`has_credentials=false`) tras el cierre build26 → logins de roles
+  fallaban (401); restauradas con el flujo nativo `POST /api/login {code}` →
+  `POST /api/auth/setup` (GTE001/VEN001, password `clave123`, pin `1234`) y
+  **dejadas activas** para que la suite de roles sea reproducible; el lockout
+  dinámico de build27 se verificó en `verify-v5` (5 intentos → 423 "…por 15
+  minutos").
+- Capturas: `b27-ajustes-equipo.png`, `b27-ajustes-sistema.png`,
+  `b27-moneda-eur.png` (precios en €), `b27-nombre-programa.png`,
+  `b27-equipo-puestos.png`.
+
 ## [1.0.0-build26] - 2026-10-03
 
 ### Fixed

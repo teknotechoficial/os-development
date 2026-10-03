@@ -31,10 +31,12 @@ const INPUT_CLASS =
 	'w-full px-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm';
 const LABEL_CLASS =
 	'block text-xs uppercase tracking-[0.12em] text-[#8FA6C4] font-semibold mb-1.5';
+const INPUT_SM =
+	'w-full px-2.5 py-1.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] outline-none rounded-lg text-xs';
 const CARD_CLASS = 'bg-[#10233E] border border-[#1C3557] rounded-2xl';
 const SECTION_TITLE = 'font-display text-sm uppercase tracking-[0.12em] text-white';
 
-type TabId = 'cuenta' | 'empresa' | 'correos';
+type TabId = 'cuenta' | 'empresa' | 'equipo' | 'sistema' | 'correos';
 
 interface SettingsData {
 	companyName: string;
@@ -50,6 +52,12 @@ interface SettingsData {
 	smtpPass: string;
 	smtpFrom: string;
 	smtpEnabled: boolean;
+	currency: string;
+	notifInterval: number;
+	loginMaxAttempts: number;
+	loginLockoutMinutes: number;
+	teamDefaultRole: string;
+	teamDefaultTitle: string;
 }
 
 const DEFAULT_SETTINGS: SettingsData = {
@@ -66,7 +74,24 @@ const DEFAULT_SETTINGS: SettingsData = {
 	smtpPass: '',
 	smtpFrom: '',
 	smtpEnabled: false,
+	currency: 'USD',
+	notifInterval: 15,
+	loginMaxAttempts: 5,
+	loginLockoutMinutes: 15,
+	teamDefaultRole: 'vendedor',
+	teamDefaultTitle: '',
 };
+
+const CURRENCY_OPTIONS = [
+	{ value: 'USD', label: 'USD — Dólar ($)' },
+	{ value: 'EUR', label: 'EUR — Euro (€)' },
+	{ value: 'ARS', label: 'ARS — Peso argentino (AR$)' },
+	{ value: 'GBP', label: 'GBP — Libra (£)' },
+];
+
+const NOTIF_INTERVAL_OPTIONS = [5, 10, 15, 30, 60];
+
+const TEAM_DEFAULT_ROLE_OPTIONS = ['vendedor', 'closer', 'desarrollador', 'gerente'];
 
 type BannerState = { type: 'success' | 'error'; message: string };
 
@@ -238,6 +263,25 @@ const mergeSettings = (prev: SettingsData, data: Record<string, any>): SettingsD
 	smtpFrom: typeof data.smtpFrom === 'string' ? data.smtpFrom : prev.smtpFrom,
 	smtpEnabled:
 		typeof data.smtpEnabled === 'boolean' ? data.smtpEnabled : prev.smtpEnabled,
+	currency: typeof data.currency === 'string' && data.currency ? data.currency : prev.currency,
+	notifInterval:
+		typeof data.notifInterval === 'number' && data.notifInterval >= 5
+			? data.notifInterval
+			: prev.notifInterval,
+	loginMaxAttempts:
+		typeof data.loginMaxAttempts === 'number' && data.loginMaxAttempts >= 3
+			? data.loginMaxAttempts
+			: prev.loginMaxAttempts,
+	loginLockoutMinutes:
+		typeof data.loginLockoutMinutes === 'number' && data.loginLockoutMinutes >= 1
+			? data.loginLockoutMinutes
+			: prev.loginLockoutMinutes,
+	teamDefaultRole:
+		typeof data.teamDefaultRole === 'string' && data.teamDefaultRole
+			? data.teamDefaultRole
+			: prev.teamDefaultRole,
+	teamDefaultTitle:
+		typeof data.teamDefaultTitle === 'string' ? data.teamDefaultTitle : prev.teamDefaultTitle,
 });
 
 interface FieldProps {
@@ -388,6 +432,20 @@ const Settings: React.FC = () => {
 	const logoFileRef = useRef<HTMLInputElement>(null);
 	const [logoError, setLogoError] = useState<string | null>(null);
 
+	type TeamDraft = { name: string; title: string; role: string };
+	const [teamDrafts, setTeamDrafts] = useState<Record<string, TeamDraft>>({});
+	const [teamBusy, setTeamBusy] = useState<Record<string, boolean>>({});
+	const [teamRowError, setTeamRowError] = useState<Record<string, string>>({});
+	const [teamSavedId, setTeamSavedId] = useState<string | null>(null);
+	const teamSavedTimer = useRef<number | null>(null);
+
+	useEffect(
+		() => () => {
+			if (teamSavedTimer.current !== null) window.clearTimeout(teamSavedTimer.current);
+		},
+		[],
+	);
+
 	useEffect(() => {
 		const root = document.documentElement;
 		if (prefs.reducedMotion) root.classList.add('reduced-motion');
@@ -486,6 +544,29 @@ const Settings: React.FC = () => {
 			const data = await response.json().catch(() => ({}));
 			if (!response.ok || data.error) {
 				throw new Error(data.error || 'No se pudo guardar la configuración');
+			}
+			/* display currency: sync into nt_prefs so formatCurrency picks it up */
+			try {
+				const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
+				const parsed = raw ? JSON.parse(raw) : null;
+				const base = parsed && typeof parsed === 'object' ? parsed : {};
+				if (base.currency !== settings.currency) {
+					window.localStorage.setItem(
+						PREFS_STORAGE_KEY,
+						JSON.stringify({ ...base, currency: settings.currency }),
+					);
+				}
+			} catch {
+				/* localStorage no disponible */
+			}
+			/* window title follows the program name */
+			try {
+				const api = (window as Window & { electronAPI?: { setWindowTitle?: (t: string) => Promise<unknown> } }).electronAPI;
+				if (api && typeof api.setWindowTitle === 'function' && settings.companyName.trim()) {
+					void api.setWindowTitle(`${settings.companyName.trim()} Cotizador`);
+				}
+			} catch {
+				/* sin Electron: título nativo sin actualizar */
 			}
 			setBanner({ type: 'success', message: 'Configuración guardada' });
 			window.setTimeout(() => setBanner(null), 3000);
@@ -612,6 +693,107 @@ const Settings: React.FC = () => {
 			return Number.isFinite(next) ? { ...prev, marginMinimum: next } : prev;
 		});
 
+	const handleNumField =
+		(key: 'notifInterval' | 'loginMaxAttempts' | 'loginLockoutMinutes') => (value: string) =>
+			setSettings((prev) => {
+				if (value.trim() === '') return { ...prev, [key]: 0 };
+				const next = Number(value);
+				return Number.isFinite(next) ? { ...prev, [key]: next } : prev;
+			});
+
+	const getTeamDraft = (member: (typeof users)[number]): TeamDraft =>
+		teamDrafts[member.id] || {
+			name: member.name,
+			title: member.title || '',
+			role: member.role,
+		};
+
+	const setTeamDraft = (memberId: string, patch: Partial<TeamDraft>) =>
+		setTeamDrafts((prev) => {
+			const current =
+				prev[memberId] ||
+				(() => {
+					const member = users.find((u) => u.id === memberId);
+					return {
+						name: member ? member.name : '',
+						title: member && member.title ? member.title : '',
+						role: member ? member.role : 'vendedor',
+					};
+				})();
+			return { ...prev, [memberId]: { ...current, ...patch } };
+		});
+
+	const saveTeamMember = async (memberId: string) => {
+		const member = users.find((u) => u.id === memberId);
+		if (!member) return;
+		const draft = getTeamDraft(member);
+		if (!draft.name.trim()) {
+			setTeamRowError((prev) => ({ ...prev, [memberId]: 'El nombre no puede estar vacío' }));
+			return;
+		}
+		setTeamBusy((prev) => ({ ...prev, [memberId]: true }));
+		setTeamRowError((prev) => ({ ...prev, [memberId]: '' }));
+		try {
+			const response = await fetch(apiUrl(`/api/team/${memberId}`), {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: draft.name.trim(),
+					title: draft.title.trim(),
+					role: draft.role,
+				}),
+			});
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok || data.error) {
+				throw new Error(data.error || 'No se pudo guardar');
+			}
+			setTeamDrafts((prev) => {
+				const next = { ...prev };
+				delete next[memberId];
+				return next;
+			});
+			setTeamSavedId(memberId);
+			if (teamSavedTimer.current !== null) window.clearTimeout(teamSavedTimer.current);
+			teamSavedTimer.current = window.setTimeout(() => setTeamSavedId(null), 2500);
+			await fetchTeam();
+		} catch (error) {
+			setTeamRowError((prev) => ({
+				...prev,
+				[memberId]:
+					error instanceof Error && error.message ? error.message : 'Error al guardar',
+			}));
+		} finally {
+			setTeamBusy((prev) => ({ ...prev, [memberId]: false }));
+		}
+	};
+
+	const toggleTeamMemberActive = async (memberId: string) => {
+		const member = users.find((u) => u.id === memberId);
+		if (!member) return;
+		setTeamBusy((prev) => ({ ...prev, [memberId]: true }));
+		setTeamRowError((prev) => ({ ...prev, [memberId]: '' }));
+		try {
+			const response = await fetch(apiUrl(`/api/team/${memberId}`), {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isActive: !member.isActive }),
+			});
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok || data.error) {
+				throw new Error(data.error || 'No se pudo cambiar el estado');
+			}
+			await fetchTeam();
+		} catch (error) {
+			setTeamRowError((prev) => ({
+				...prev,
+				[memberId]:
+					error instanceof Error && error.message ? error.message : 'Error al guardar',
+			}));
+		} finally {
+			setTeamBusy((prev) => ({ ...prev, [memberId]: false }));
+		}
+	};
+
 	const flashPrefsSaved = () => {
 		setPrefsSaved(true);
 		if (prefsSavedTimer.current !== null) window.clearTimeout(prefsSavedTimer.current);
@@ -711,11 +893,17 @@ const Settings: React.FC = () => {
 		? [
 				{ id: 'cuenta', label: 'Cuenta' },
 				{ id: 'empresa', label: 'Empresa' },
+				{ id: 'equipo', label: 'Equipo' },
+				{ id: 'sistema', label: 'Sistema' },
 				{ id: 'correos', label: 'Correos' },
 			]
 		: [{ id: 'cuenta', label: 'Cuenta' }];
 
 	const logoInputValue = settings.companyLogo.startsWith('data:') ? '' : settings.companyLogo;
+
+	const intervalOptions = NOTIF_INTERVAL_OPTIONS.includes(settings.notifInterval)
+		? NOTIF_INTERVAL_OPTIONS
+		: [settings.notifInterval, ...NOTIF_INTERVAL_OPTIONS].sort((a, b) => a - b);
 
 	const roleBadgeClass = user?.role
 		? ROLE_BADGE_CLASS[user.role] || ROLE_BADGE_FALLBACK
@@ -739,7 +927,7 @@ const Settings: React.FC = () => {
 		<div className="max-w-5xl mx-auto space-y-6">
 			<PageHeader
 				title="Ajustes"
-				subtitle={canManage ? 'Datos de la empresa, correos y tu cuenta' : 'Tu cuenta de acceso'}
+				subtitle={canManage ? 'Empresa, equipo, sistema, correos y tu cuenta' : 'Tu cuenta de acceso'}
 			/>
 
 			<Banner banner={banner} />
@@ -1273,6 +1461,334 @@ const Settings: React.FC = () => {
 								<BackupCard onImported={() => { void fetchSettings(); }} />
 							</div>
 						</>
+					)}
+				</div>
+			) : null}
+
+			{canManage && activeTab === 'equipo' ? (
+				<div
+					role="tabpanel"
+					id="settings-panel-equipo"
+					aria-labelledby="settings-tab-equipo"
+					className="space-y-6"
+				>
+					{loading ? (
+						settingsSkeleton
+					) : (
+						<>
+							<form onSubmit={handleSave} className="space-y-6">
+								<Card className={`p-6 ${CARD_CLASS}`}>
+									<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+										<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+											<UserCog className="w-4 h-4" />
+										</span>
+										<div>
+											<h2 className={SECTION_TITLE}>Altas por defecto</h2>
+											<p className="text-xs text-[#5B7295]">
+												Valores iniciales del formulario Nuevo miembro
+											</p>
+										</div>
+									</div>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<div>
+											<label htmlFor="settings-team-default-role" className={LABEL_CLASS}>
+												Puesto por defecto
+											</label>
+											<select
+												id="settings-team-default-role"
+												value={settings.teamDefaultRole}
+												onChange={(e) => setField('teamDefaultRole', e.target.value)}
+												className={INPUT_CLASS}
+											>
+												{TEAM_DEFAULT_ROLE_OPTIONS.map((role) => (
+													<option key={role} value={role}>
+														{ROLE_LABELS[role] || role}
+													</option>
+												))}
+											</select>
+										</div>
+										<Field
+											id="settings-team-default-title"
+											label="Cargo por defecto"
+											value={settings.teamDefaultTitle}
+											onChange={updateField('teamDefaultTitle')}
+											placeholder="Ej: Vendedor Jr."
+										/>
+									</div>
+									<div className="flex justify-end pt-1">
+										<Button type="submit" variant="primary" disabled={saving}>
+											{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+										</Button>
+									</div>
+								</Card>
+							</form>
+
+							<Card className={`p-6 ${CARD_CLASS}`}>
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<User className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Miembros del equipo</h2>
+										<p className="text-xs text-[#5B7295]">
+											Editá nombre, cargo, puesto y estado de cada integrante
+										</p>
+									</div>
+								</div>
+								{users.length === 0 ? (
+									<div className="text-center py-8">
+										<p className="text-sm text-[#5B7295]">Todavía no hay miembros registrados</p>
+									</div>
+								) : (
+									<div className="overflow-x-auto">
+										<table className="w-full text-sm">
+											<thead>
+												<tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#5B7295] border-b border-[#16294A]">
+													<th className="py-2 pr-3 font-semibold">Miembro</th>
+													<th className="py-2 pr-3 font-semibold">Nombre</th>
+													<th className="py-2 pr-3 font-semibold">Cargo</th>
+													<th className="py-2 pr-3 font-semibold">Puesto</th>
+													<th className="py-2 pr-3 font-semibold">Estado</th>
+													<th className="py-2 font-semibold">Acciones</th>
+												</tr>
+											</thead>
+											<tbody>
+												{users.map((member) => {
+													const draft = getTeamDraft(member);
+													const busy = teamBusy[member.id] === true;
+													const rowError = teamRowError[member.id];
+													const dirty =
+														draft.name !== member.name ||
+														draft.title !== (member.title || '') ||
+														draft.role !== member.role;
+													return (
+														<tr
+															key={member.id}
+															className="border-b border-[#16294A]/60 align-middle"
+														>
+															<td className="py-2.5 pr-3">
+																<div className="flex items-center gap-2.5 min-w-0">
+																	<span className="w-8 h-8 rounded-full bg-[#1877E8]/12 border border-[#1877E8]/30 text-[#60A5FA] flex items-center justify-center shrink-0 text-[10px] font-bold uppercase">
+																		{member.name
+																			.split(' ')
+																			.filter(Boolean)
+																			.map((part) => part[0])
+																			.slice(0, 2)
+																			.join('')}
+																	</span>
+																	<span className="font-mono text-[11px] text-[#5B7295] truncate">
+																		{member.code}
+																	</span>
+																</div>
+															</td>
+															<td className="py-2 pr-3 min-w-[10rem]">
+																<input
+																	type="text"
+																	value={draft.name}
+																	aria-label={`Nombre de ${member.name}`}
+																	onChange={(e) => setTeamDraft(member.id, { name: e.target.value })}
+																	className={INPUT_SM}
+																/>
+															</td>
+															<td className="py-2 pr-3 min-w-[9rem]">
+																<input
+																	type="text"
+																	value={draft.title}
+																	placeholder="Ej: Closer"
+																	aria-label={`Cargo de ${member.name}`}
+																	onChange={(e) => setTeamDraft(member.id, { title: e.target.value })}
+																	className={INPUT_SM}
+																/>
+															</td>
+															<td className="py-2 pr-3 min-w-[9rem]">
+																{member.role === 'super_admin' ? (
+																	<span className="inline-block text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#FBBF24]">
+																		CEO
+																	</span>
+																) : (
+																	<select
+																		value={draft.role}
+																		aria-label={`Puesto de ${member.name}`}
+																		onChange={(e) => setTeamDraft(member.id, { role: e.target.value })}
+																		className={INPUT_SM}
+																	>
+																		{TEAM_DEFAULT_ROLE_OPTIONS.map((role) => (
+																			<option key={role} value={role}>
+																				{ROLE_LABELS[role] || role}
+																			</option>
+																		))}
+																	</select>
+																)}
+															</td>
+															<td className="py-2 pr-3">
+																<button
+																	type="button"
+																	disabled={busy}
+																	aria-label={`Cambiar estado de ${member.name}`}
+																	onClick={() => toggleTeamMemberActive(member.id)}
+																	className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full border transition-colors disabled:opacity-60 ${
+																		member.isActive
+																			? 'bg-[#34D399]/10 border-[#34D399]/40 text-[#34D399] hover:bg-[#34D399]/20'
+																			: 'bg-[#E11D48]/10 border-[#E11D48]/40 text-[#FB7185] hover:bg-[#E11D48]/20'
+																	}`}
+																>
+																	<span
+																		className={`w-1.5 h-1.5 rounded-full ${
+																			member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
+																		}`}
+																	/>
+																	{member.isActive ? 'Activo' : 'Inactivo'}
+																</button>
+															</td>
+															<td className="py-2">
+																<div className="flex items-center gap-2">
+																	<Button
+																		type="button"
+																		variant="secondary"
+																		size="sm"
+																		disabled={busy || !dirty}
+																		onClick={() => saveTeamMember(member.id)}
+																	>
+																		{busy ? 'GUARDANDO…' : 'GUARDAR'}
+																	</Button>
+																	{teamSavedId === member.id ? (
+																		<span className="text-[10px] uppercase tracking-wider text-[#34D399]">
+																			Guardado
+																		</span>
+																	) : null}
+																</div>
+																{rowError ? (
+																	<p className="text-[11px] text-[#FB7185] mt-1">{rowError}</p>
+																) : null}
+															</td>
+														</tr>
+													);
+												})}
+											</tbody>
+										</table>
+									</div>
+								)}
+							</Card>
+						</>
+					)}
+				</div>
+			) : null}
+
+			{canManage && activeTab === 'sistema' ? (
+				<div
+					role="tabpanel"
+					id="settings-panel-sistema"
+					aria-labelledby="settings-tab-sistema"
+					className="space-y-6"
+				>
+					{loading ? (
+						settingsSkeleton
+					) : (
+						<form onSubmit={handleSave} className="space-y-6">
+							<Card className={`p-6 ${CARD_CLASS}`}>
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<Sliders className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Configuración del sistema</h2>
+										<p className="text-xs text-[#5B7295]">
+											Moneda, alertas y seguridad de acceso para todo el equipo
+										</p>
+									</div>
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label htmlFor="settings-currency" className={LABEL_CLASS}>
+											Moneda
+										</label>
+										<select
+											id="settings-currency"
+											value={settings.currency}
+											onChange={(e) => setField('currency', e.target.value)}
+											className={INPUT_CLASS}
+										>
+											{CURRENCY_OPTIONS.map((option) => (
+												<option key={option.value} value={option.value}>
+													{option.label}
+												</option>
+											))}
+										</select>
+									</div>
+									<div>
+										<label htmlFor="settings-notif-interval" className={LABEL_CLASS}>
+											Alertas cada (segundos)
+										</label>
+										<select
+											id="settings-notif-interval"
+											value={String(settings.notifInterval)}
+											onChange={(e) => handleNumField('notifInterval')(e.target.value)}
+											className={INPUT_CLASS}
+										>
+											{intervalOptions.map((seconds) => (
+												<option key={seconds} value={seconds}>
+													{seconds} segundos
+												</option>
+											))}
+										</select>
+									</div>
+								</div>
+							</Card>
+
+							<Card className={`p-6 ${CARD_CLASS}`}>
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<KeyRound className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Seguridad de acceso</h2>
+										<p className="text-xs text-[#5B7295]">
+											Bloqueo temporal tras intentos fallidos de login
+										</p>
+									</div>
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label htmlFor="settings-login-max" className={LABEL_CLASS}>
+											Intentos fallidos permitidos
+										</label>
+										<input
+											id="settings-login-max"
+											type="number"
+											min={3}
+											max={20}
+											value={settings.loginMaxAttempts}
+											onChange={(e) => handleNumField('loginMaxAttempts')(e.target.value)}
+											className={INPUT_CLASS}
+										/>
+									</div>
+									<div>
+										<label htmlFor="settings-login-lockout" className={LABEL_CLASS}>
+											Bloqueo temporal (minutos)
+										</label>
+										<input
+											id="settings-login-lockout"
+											type="number"
+											min={1}
+											max={120}
+											value={settings.loginLockoutMinutes}
+											onChange={(e) => handleNumField('loginLockoutMinutes')(e.target.value)}
+											className={INPUT_CLASS}
+										/>
+									</div>
+								</div>
+								<p className="text-xs text-[#5B7295] mt-4">
+									Tras {settings.loginMaxAttempts} intentos fallidos se bloquea el acceso
+									durante {settings.loginLockoutMinutes} minutos.
+								</p>
+							</Card>
+
+							<div className="flex justify-end pt-1">
+								<Button type="submit" variant="primary" disabled={saving}>
+									{saving ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+								</Button>
+							</div>
+						</form>
 					)}
 				</div>
 			) : null}

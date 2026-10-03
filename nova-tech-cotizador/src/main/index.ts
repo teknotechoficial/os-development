@@ -9,6 +9,28 @@ dotenv.config({ path: join(app.getAppPath(), '.env') });
 
 let mainWindow: BrowserWindow | null = null;
 
+/* Window title follows the CEO-configured program name (settings.companyName) */
+async function applyWindowTitle(): Promise<void> {
+	const port = process.env.PORT || 3001;
+	for (let attempt = 0; attempt < 5 && mainWindow; attempt++) {
+		try {
+			const res = await fetch(`http://localhost:${port}/api/settings/public`);
+			if (res.ok) {
+				const data = (await res.json()) as { companyName?: unknown } | null;
+				const name =
+					data && typeof data.companyName === 'string' && data.companyName.trim()
+						? data.companyName.trim().slice(0, 80)
+						: 'TeknoTech Services';
+				if (mainWindow) mainWindow.setTitle(`${name} Cotizador`);
+				return;
+			}
+		} catch {
+			/* servidor aún no responde: se reintenta */
+		}
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	}
+}
+
 export async function bootstrap(): Promise<void> {
 	try {
 		await initDatabase();
@@ -45,6 +67,8 @@ export async function bootstrap(): Promise<void> {
 			}
 			return { action: 'allow' };
 		});
+
+		void applyWindowTitle();
 
 		if (app.isPackaged) {
 			mainWindow.loadFile(join(app.getAppPath(), 'dist', 'renderer', 'index.html'));

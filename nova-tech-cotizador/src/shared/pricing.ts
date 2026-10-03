@@ -1,4 +1,5 @@
 import { MINIMUM_MARGIN } from './constants';
+import { formatCurrency } from './validators';
 
 type ProductType = string;
 type QuoteConfig = any;
@@ -157,9 +158,18 @@ export function calculateBasePrice(productType: ProductType, config: QuoteConfig
   return Math.round(price);
 }
 
-/* Total to charge: sum of services (basePrice), never below the minimum sale price */
-export function calculateFinalPrice(basePrice: number): number {
-  return Math.max(Math.round(basePrice), MINIMUM_MARGIN);
+/* Total to charge: sum of services (basePrice), never below the minimum sale price.
+   floor comes from settings.marginMinimum (CEO-configurable), defaulting to MINIMUM_MARGIN */
+export function calculateFinalPrice(basePrice: number, floor: number = MINIMUM_MARGIN): number {
+  const min = Number(floor);
+  const safeFloor = Number.isFinite(min) && min >= 0 ? Math.round(min) : MINIMUM_MARGIN;
+  return Math.max(Math.round(basePrice), safeFloor);
+}
+
+export function minSaleMessage(floor: number = MINIMUM_MARGIN): string {
+  const min = Number(floor);
+  const safeFloor = Number.isFinite(min) && min >= 0 ? Math.round(min) : MINIMUM_MARGIN;
+  return `El mínimo de venta es de ${formatCurrency(safeFloor)}`;
 }
 
 export function getProductDetails(productType: ProductType, config: QuoteConfig): string[] {

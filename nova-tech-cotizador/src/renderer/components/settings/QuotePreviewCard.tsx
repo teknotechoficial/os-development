@@ -1,5 +1,6 @@
 import React from 'react';
 import { Building2, FileText } from 'lucide-react';
+import { formatCurrency } from '@/shared/validators';
 
 export interface QuotePreviewCardProps {
 	companyName: string;
@@ -65,7 +66,7 @@ export default function QuotePreviewCard(props: QuotePreviewCardProps) {
 				<div className="flex flex-wrap gap-2 mt-3">
 					<span className={CHIP_CLASS}>{`Alias: ${paymentAlias || '—'}`}</span>
 					<span className={CHIP_CLASS}>{`Titular: ${paymentTitular || '—'}`}</span>
-									<span className={CHIP_CLASS}>{`Mínimo de venta: $${marginMinimum} USD`}</span>
+									<span className={CHIP_CLASS}>{`Mínimo de venta: ${formatCurrency(marginMinimum)}`}</span>
 				</div>
 			</div>
 		</section>

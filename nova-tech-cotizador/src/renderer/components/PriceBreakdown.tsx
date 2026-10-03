@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatCurrency } from '@/shared/validators';
-import { MIN_TOTAL_MESSAGE } from '@/shared/constants';
+import { minSaleMessage } from '@/shared/pricing';
 import { Card } from '@/renderer/components/ui';
 
 export interface PriceBreakdownItem {
@@ -57,7 +57,7 @@ const PriceBreakdown: React.FC<Props> = ({ items, basePrice, finalPrice }) => {
 							</span>
 							<span className="text-[11px] text-[#F59E0B]">{formatCurrency(finalPrice - basePrice)}</span>
 						</div>
-						<div className="text-[#F59E0B] text-[11px]">{MIN_TOTAL_MESSAGE}</div>
+						<div className="text-[#F59E0B] text-[11px]">{minSaleMessage(finalPrice)}</div>
 					</>
 				)}
 				<div className="border-t border-[#1C3557] my-2" />

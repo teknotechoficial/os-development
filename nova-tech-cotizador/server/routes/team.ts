@@ -18,12 +18,15 @@ router.get('/', async (_req: any, res: any) => {
 
 router.post('/', async (req: any, res: any) => {
   const db = getPool();
-  const { name, code, role, email } = req.body;
+  const { name, code, role, email, title } = req.body;
   try {
+    if (title !== undefined && title !== null && (typeof title !== 'string' || title.length > 80)) {
+      return res.status(400).json({ error: 'Cargo demasiado largo' });
+    }
     const id = randomUUID();
     await db.query(
-      'INSERT INTO users (id, name, code, role, email, password_hash, has_credentials, is_active) VALUES ($1, $2, $3, $4, $5, NULL, false, true)',
-      [id, name, code, role, email]
+      'INSERT INTO users (id, name, code, role, email, title, password_hash, has_credentials, is_active) VALUES ($1, $2, $3, $4, $5, $6, NULL, false, true)',
+      [id, name, code, role, email, title ? String(title).trim() : null]
     );
     res.json({ id, name, code, role, email, success: true });
   } catch (err) {
@@ -34,9 +37,9 @@ router.post('/', async (req: any, res: any) => {
 // PUT /api/team/:id - update member profile (sector/role, name, email)
 const VALID_ROLES = ['super_admin', 'gerente', 'vendedor', 'closer', 'desarrollador'];
 
-router.put('/:id', async (req: any, res: any) => {
+	router.put('/:id', async (req: any, res: any) => {
   const db = getPool();
-	const { role, name, email, avatar, title, phone, bio } = req.body;
+	const { role, name, email, avatar, title, phone, bio, isActive } = req.body;
 	try {
 		if (role !== undefined && !VALID_ROLES.includes(role)) {
 			return res.status(400).json({ error: 'Sector no válido' });
@@ -92,12 +95,20 @@ router.put('/:id', async (req: any, res: any) => {
 			values.push(bio === null ? null : bio.trim());
 			sets.push(`bio = $${values.length}`);
 		}
+		if (isActive !== undefined && isActive !== null) {
+			const target = await db.query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+			if (target.rows[0] && target.rows[0].role === 'super_admin' && !isActive) {
+				return res.status(400).json({ error: 'No se puede desactivar al CEO' });
+			}
+			values.push(!!isActive);
+			sets.push(`is_active = $${values.length}`);
+		}
 		if (sets.length === 0) {
 			return res.status(400).json({ error: 'No hay datos para actualizar' });
 		}
 		values.push(req.params.id);
 		const r = await db.query(
-			`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, code, role, email, title, phone, bio`,
+			`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, code, role, email, title, phone, bio, is_active`,
 			values
 		);
     if (r.rowCount === 0) return res.status(400).json({ error: 'Usuario no encontrado.' });

@@ -12,8 +12,8 @@ import {
 
 const router = Router();
 
-const LOCKOUT_WINDOW = "NOW() - INTERVAL '15 minutes'";
-const LOCKOUT_MAX = 5;
+const DEFAULT_LOCKOUT_MINUTES = 15;
+const DEFAULT_LOCKOUT_MAX = 5;
 const VALIDATION_ERROR = 'La contraseña debe tener al menos 6 caracteres y el PIN debe ser de 4 dígitos.';
 const INVALID_CREDENTIALS = 'Credenciales inválidas';
 const INVALID_TOKEN = 'Token inválido o expirado';
@@ -48,13 +48,35 @@ async function logAttempt(db: any, identifier: string, success: boolean, ip: str
   }
 }
 
-async function isLockedOut(db: any, identifier: string): Promise<boolean> {
+async function getLockoutConfig(db: any): Promise<{ max: number; minutes: number }> {
+  try {
+    const r = await db.query(
+      "SELECT login_max_attempts, login_lockout_minutes FROM settings WHERE id = 'app'"
+    );
+    const row = r.rows[0];
+    const max = row ? Number(row.login_max_attempts) : NaN;
+    const minutes = row ? Number(row.login_lockout_minutes) : NaN;
+    return {
+      max: Number.isFinite(max) && max >= 1 ? Math.round(max) : DEFAULT_LOCKOUT_MAX,
+      minutes:
+        Number.isFinite(minutes) && minutes >= 1 ? Math.round(minutes) : DEFAULT_LOCKOUT_MINUTES,
+    };
+  } catch {
+    return { max: DEFAULT_LOCKOUT_MAX, minutes: DEFAULT_LOCKOUT_MINUTES };
+  }
+}
+
+async function isLockedOut(
+  db: any,
+  identifier: string,
+  cfg: { max: number; minutes: number }
+): Promise<boolean> {
   const r = await db.query(
     `SELECT count(*)::int AS n FROM login_attempts
-     WHERE identifier = $1 AND success = false AND created_at > ${LOCKOUT_WINDOW}`,
-    [identifier.toLowerCase()]
+     WHERE identifier = $1 AND success = false AND created_at > NOW() - ($2::int * INTERVAL '1 minute')`,
+    [identifier.toLowerCase(), cfg.minutes]
   );
-  return (r.rows[0]?.n || 0) >= LOCKOUT_MAX;
+  return (r.rows[0]?.n || 0) >= cfg.max;
 }
 
 // POST /api/login
@@ -73,9 +95,10 @@ router.post('/login', async (req: any, res: any) => {
 
   try {
     const attemptKey = identifier || code;
-    if (await isLockedOut(db, attemptKey)) {
+    const lockoutCfg = await getLockoutConfig(db);
+    if (await isLockedOut(db, attemptKey, lockoutCfg)) {
       return res.status(423).json({
-        error: 'Demasiados intentos fallidos. Cuenta bloqueada temporalmente por 15 minutos.',
+        error: `Demasiados intentos fallidos. Cuenta bloqueada temporalmente por ${lockoutCfg.minutes} minutos.`,
       });
     }
 

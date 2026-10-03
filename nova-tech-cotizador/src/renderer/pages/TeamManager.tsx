@@ -81,7 +81,8 @@ const TeamManager: React.FC = () => {
 	const [submitting, setSubmitting] = useState(false);
 	const [formError, setFormError] = useState('');
 	const [formSuccess, setFormSuccess] = useState(false);
-	const [form, setForm] = useState({ name: '', code: '', email: '', role: 'vendedor', specialty: '' });
+	const [form, setForm] = useState({ name: '', code: '', email: '', role: 'vendedor', title: '', specialty: '' });
+	const [teamDefaults, setTeamDefaults] = useState<{ role: string; title: string } | null>(null);
 	const [showManage, setShowManage] = useState(false);
 	const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -103,6 +104,35 @@ const TeamManager: React.FC = () => {
 			document.body.style.overflow = previous;
 		};
 	}, [showManage]);
+
+	/* Alta por defecto configurable por el CEO en Ajustes > Equipo */
+	useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const response = await fetch(apiUrl('/api/settings/public'));
+				if (!response.ok) return;
+				const data = await response.json();
+				if (!active || !data || typeof data !== 'object') return;
+				const role =
+					typeof data.teamDefaultRole === 'string' && data.teamDefaultRole
+						? data.teamDefaultRole
+						: '';
+				const title = typeof data.teamDefaultTitle === 'string' ? data.teamDefaultTitle : '';
+				setTeamDefaults({ role, title });
+				setForm((prev) =>
+					prev.name === '' && prev.code === '' && prev.email === ''
+						? { ...prev, role: role || prev.role, title: title || prev.title }
+						: prev
+				);
+			} catch {
+				/* sin conexión: se conservan los valores locales */
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	const handleStatusChange = async (developerId: string, status: string) => {
 		setSavingRows((prev) => ({ ...prev, [developerId]: true }));
@@ -151,6 +181,7 @@ const TeamManager: React.FC = () => {
 					code: form.code.trim(),
 					role: form.role,
 					email: form.email.trim(),
+					...(form.title.trim() ? { title: form.title.trim() } : {}),
 					...(form.role === 'desarrollador' && form.specialty.trim()
 						? { specialty: form.specialty.trim() }
 						: {}),
@@ -162,7 +193,14 @@ const TeamManager: React.FC = () => {
 			}
 			await fetchTeam();
 			setShowForm(false);
-			setForm({ name: '', code: '', email: '', role: 'vendedor', specialty: '' });
+			setForm({
+				name: '',
+				code: '',
+				email: '',
+				role: (teamDefaults && teamDefaults.role) || 'vendedor',
+				title: (teamDefaults && teamDefaults.title) || '',
+				specialty: '',
+			});
 			setFormSuccess(true);
 			window.setTimeout(() => setFormSuccess(false), 3000);
 		} catch (error) {
@@ -279,6 +317,7 @@ const TeamManager: React.FC = () => {
 	}
 
 	const developers = users.filter((member) => member.role === 'desarrollador');
+	const ROLE_ORDER = ['super_admin', 'gerente', 'vendedor', 'closer', 'desarrollador'];
 	const activeMembers = users.filter((member) => member.isActive).length;
 	const sellers = users.filter((member) => member.role === 'vendedor').length;
 
@@ -313,7 +352,7 @@ const TeamManager: React.FC = () => {
 		<div className="max-w-7xl mx-auto space-y-6">
 			<PageHeader
 				title="Equipo"
-				subtitle="Disponibilidad, miembros y gestión del equipo"
+				subtitle="Disponibilidad, gestión y miembros organizados por puesto de trabajo"
 				actions={
 					<div className="flex items-center gap-2">
 						<Button
@@ -435,6 +474,19 @@ const TeamManager: React.FC = () => {
 										<option value="desarrollador">{ROLE_LABELS.desarrollador}</option>
 										<option value="gerente">{ROLE_LABELS.gerente}</option>
 									</select>
+								</div>
+								<div>
+									<label htmlFor="member-title" className={LABEL_CLASS}>
+										Cargo
+									</label>
+									<input
+										id="member-title"
+										type="text"
+										value={form.title}
+										onChange={(e) => setForm({ ...form, title: e.target.value })}
+										className={INPUT_CLASS}
+										placeholder={(teamDefaults && teamDefaults.title) || 'Ej: Closer'}
+									/>
 								</div>
 								{form.role === 'desarrollador' && (
 									<div className="sm:col-span-2 lg:col-span-3">
@@ -596,62 +648,81 @@ const TeamManager: React.FC = () => {
 						description="Aún no hay miembros registrados"
 					/>
 				) : (
-					<div className="stagger-in grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-						{users.map((member) => {
-							const RoleIcon = ROLE_ICONS[member.role] || Users;
+					<div className="space-y-6">
+						{ROLE_ORDER.map((roleKey) => {
+							const group = users
+								.filter((member) => member.role === roleKey)
+								.sort((a, b) => a.name.localeCompare(b.name));
+							if (group.length === 0) return null;
 							return (
-								<button
-									key={member.id}
-									type="button"
-									onClick={() => setDetailId(member.id)}
-									aria-label={`Ver ficha de ${member.name}`}
-									className="group flex items-center gap-3.5 bg-[#0C1E36] border border-[#16294A] rounded-2xl p-4 hover-lift hover:border-[#1877E8]/50 hover:bg-[#14294A] transition-all text-left cursor-pointer w-full"
-								>
-									<span className="relative shrink-0">
-										<Avatar
-											name={member.name}
-											avatar={member.avatar}
-											className="w-11 h-11 text-xs avatar-pop"
-										/>
-										<span
-											className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0C1E36] ${
-												member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
-											}`}
-										/>
-									</span>
-									<div className="min-w-0 flex-1">
-										<p className="text-sm font-semibold text-white truncate transition-colors group-hover:text-[#60A5FA]">
-											{member.name}
-										</p>
-										<div className="flex items-center gap-2 mt-1.5 min-w-0">
-											<span
-												className={`${ROLE_BADGE_BASE} inline-flex items-center gap-1 shrink-0 ${
-													ROLE_BADGES[member.role] || 'bg-[#1C3557] text-[#8FA6C4]'
-												}`}
-											>
-												<RoleIcon className="h-3 w-3" />
-												{ROLE_LABELS[member.role] || member.role}
-											</span>
-											<span className="font-mono text-[11px] text-[#5B7295] truncate">
-												{member.code}
-											</span>
-										</div>
+								<div key={roleKey}>
+									<div className="flex items-center gap-3 mb-3">
+										<h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8FA6C4]">
+											{ROLE_LABELS[roleKey] || roleKey}
+										</h3>
+										<span className="text-[10px] font-mono text-[#5B7295]">{group.length}</span>
+										<span className="flex-1 h-px bg-[#16294A]" />
 									</div>
-									<span
-										className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${
-											member.isActive
-												? 'bg-[#34D399]/10 text-[#34D399]'
-												: 'bg-[#E11D48]/10 text-[#FB7185]'
-										}`}
-									>
-										<span
-											className={`w-1.5 h-1.5 rounded-full ${
-												member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
-											}`}
-										/>
-										{member.isActive ? 'Activo' : 'Inactivo'}
-									</span>
-								</button>
+									<div className="stagger-in grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+										{group.map((member) => {
+											const RoleIcon = ROLE_ICONS[member.role] || Users;
+											return (
+												<button
+													key={member.id}
+													type="button"
+													onClick={() => setDetailId(member.id)}
+													aria-label={`Ver ficha de ${member.name}`}
+													className="group flex items-center gap-3.5 bg-[#0C1E36] border border-[#16294A] rounded-2xl p-4 hover-lift hover:border-[#1877E8]/50 hover:bg-[#14294A] transition-all text-left cursor-pointer w-full"
+												>
+													<span className="relative shrink-0">
+														<Avatar
+															name={member.name}
+															avatar={member.avatar}
+															className="w-11 h-11 text-xs avatar-pop"
+														/>
+														<span
+															className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0C1E36] ${
+																member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
+															}`}
+														/>
+													</span>
+													<div className="min-w-0 flex-1">
+														<p className="text-sm font-semibold text-white truncate transition-colors group-hover:text-[#60A5FA]">
+															{member.name}
+														</p>
+														<div className="flex items-center gap-2 mt-1.5 min-w-0">
+															<span
+																className={`${ROLE_BADGE_BASE} inline-flex items-center gap-1 shrink-0 ${
+																	ROLE_BADGES[member.role] || 'bg-[#1C3557] text-[#8FA6C4]'
+																}`}
+															>
+																<RoleIcon className="h-3 w-3" />
+																{ROLE_LABELS[member.role] || member.role}
+															</span>
+															<span className="font-mono text-[11px] text-[#5B7295] truncate">
+																{member.code}
+															</span>
+														</div>
+													</div>
+													<span
+														className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${
+															member.isActive
+																? 'bg-[#34D399]/10 text-[#34D399]'
+																: 'bg-[#E11D48]/10 text-[#FB7185]'
+														}`}
+													>
+														<span
+															className={`w-1.5 h-1.5 rounded-full ${
+																member.isActive ? 'bg-[#34D399]' : 'bg-[#E11D48]'
+															}`}
+														/>
+														{member.isActive ? 'Activo' : 'Inactivo'}
+													</span>
+												</button>
+											);
+										})}
+									</div>
+								</div>
 							);
 						})}
 					</div>

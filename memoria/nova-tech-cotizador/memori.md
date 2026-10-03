@@ -735,3 +735,62 @@
   sigue válido como columna BD).
 - Cierre estándar: reset-credentials + DELETE login_attempts + kill procesos +
   restantes=0 + server=down + credenciales seed en false.
+
+---
+
+## build27 - 2026-10-03 - AJUSTES TOTALMENTE CONFIGURABLES + EQUIPO POR PUESTO
+
+**Estado: CERRADA (E2E 212/212, push).**
+
+### Pedido del usuario
+- "En Ajustes poder cambiar ABSOLUTAMENTE todo": piso/margen mínimo con efecto real,
+  nombre del programa, info/cosas del equipo, otras configuraciones del sistema.
+- Reorganizar apartado Equipo ordenado por puesto de trabajo.
+
+### Implementado (build27)
+- **Piso configurable**: `settings.margin_minimum` (def 250, validación 400 en -5→400);
+  server/quotes lee de BD; NewQuote lee `/api/settings/public`;
+  `calculateFinalPrice(base, floor=MINIMUM_MARGIN)`; `minSaleMessage(floor)` ahora usa
+  `formatCurrency` (sin "$250 USD" hardcodeado; chip QuotePreviewCard igual).
+- **Moneda** (`settings.currency` USD/EUR/ARS/GBP): `formatCurrency` con CURRENCY_INFO
+  (símbolo+locale) leyendo `globalThis.localStorage` (evita error TS `window` en main);
+  AppLayout sync `nt_prefs.currency` al iniciar; handleSave de Settings también sync.
+- **`GET /api/settings/public`** (settings.ts): SIN smtpPass; expone companyName,
+  companyLogo, currency, notifInterval, marginMinimum, teamDefaultRole/Title, phone,
+  email, paymentAlias, paymentTitular.
+- **Nombre programa**: companyName → sidebar partido (1ª palabra / resto MAYÚSCULAS),
+  footer, Notification fallback, título ventana (`applyWindowTitle()` en main/index.ts,
+  5 retries, IPC `set-title`/`setWindowTitle`).
+- **5 tabs Ajustes**: Cuenta/Empresa/Equipo/Sistema/Correos. Panel Equipo:
+  defaults de alta (rol+título), tabla miembros con cargo/estado, CEO badge readonly,
+  toggle activar/desactivar (`PUT isActive` con guarda 400 CEO). Panel Sistema:
+  moneda/notif 5–300s (poll dinámico `max(5000, interval*1000)`)/intentos 3–20/
+  bloqueo 1–120 min (423 dinámico "…por N minutos").
+- **TeamManager agrupado**: ROLE_ORDER (CEO→Gerente→Vendedor→Closer→Desarrollador)
+  con headers+count, alfabético interno; form con campo Cargo `#member-title`.
+- Migraciones ×3 (schema.ts, server/db.ts, src/main/database.ts): currency,
+  notif_interval, login_max_attempts, login_lockout_minutes, team_default_role,
+  team_default_title.
+- Probes: `verify-b27.js` NUEVO (37 checks); b13 5.3/5.5a y settings-new 1.1/2.1
+  actualizados 3→5 tabs; b25 2.9 regex nota `\$250( USD)?`.
+
+### E2E build27 (212/212 + 4 exit0)
+- b27 **37/37** (incluye EUR e2e + restauración USD + nombre + agrupado + restauración
+  total 9.1) → b13 **78/78** → b25 **40/40** → settings-new **24/24** →
+  b25-server **33/33** → c/d/b2/v5 exit 0. tsc 0/0, vite OK, NSIS exit 1er intento,
+  ASAR 40,840,077 @ 01:25, 0 excepciones/0 console errors.
+
+### Gotchas build27 (IMPORTANTES)
+- **Credenciales roles**: el cierre build26 restauró juan/amauir a `has_credentials=false`
+  (estado seed) → b25 rojo 5.1/6.x con `ERR=` vacío. **NUEVA CONVENCIÓN: DEJAR
+  credenciales ACTIVAS** (GTE001/VEN001, `clave123`, pin `1234`) para que la suite de
+  roles sea reproducible. Restauración: flujo nativo `POST /api/login {code}` (sin pin →
+  `setupRequired:true, token`) → `POST /api/auth/setup {token,password,pin}`.
+- `users` (no `team_members`): id, email, name, code, password_hash, role, is_active,
+  has_credentials, pin_hash, title, phone, bio.
+- Mensaje min-sale con moneda: regex probes deben aceptar `\$250` sin " USD".
+- Server/app pueden caerse entre bloques (health DOWN + CDP DOWN): relanzar
+  `npm run server` (cmd oculto con log) + `.exe --remote-debugging-port=9222` y esperar
+  ambos UP antes de seguir.
+- Cierre estándar ACTUALIZADO: DELETE login_attempts (v5 deja 6 intentos de lockout)
+  + kill procesos (app+server) + restantes=0 + **credenciales roles ON**.

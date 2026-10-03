@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { getPool } from './database';
 import { calculateBasePrice, calculateFinalPrice } from '../shared/pricing';
 import { generateId } from '../shared/validators';
@@ -41,7 +41,12 @@ function registerHandlers() {
     const db = getPool();
     try {
       const basePrice = calculateBasePrice(quoteData.productType, quoteData.config);
-      const finalPrice = calculateFinalPrice(basePrice);
+      const st = await db.query("SELECT margin_minimum FROM settings WHERE id = 'app'");
+      const floor =
+        st.rows[0] && st.rows[0].margin_minimum !== null
+          ? Number(st.rows[0].margin_minimum)
+          : undefined;
+      const finalPrice = calculateFinalPrice(basePrice, floor);
       const id = generateId();
       const now = new Date().toISOString();
       await db.query(
@@ -120,6 +125,14 @@ function registerHandlers() {
 
   ipcMain.handle('sendWhatsApp', async (_event, quoteId: string) => {
     return { success: true, message: 'Mensaje enviado' };
+  });
+
+  ipcMain.handle('set-title', (_event, title: unknown) => {
+    if (typeof title === 'string' && title.trim()) {
+      const clean = title.trim().slice(0, 120);
+      BrowserWindow.getAllWindows().forEach((win) => win.setTitle(clean));
+    }
+    return true;
   });
 }
 

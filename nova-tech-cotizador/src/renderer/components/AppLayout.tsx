@@ -68,7 +68,13 @@ const ROLE_LABELS: Record<string, string> = {
 
 const BADGE_CLASSES = 'bg-[#E11D48] text-white text-[10px] rounded-full px-1.5 min-w-[18px] text-center';
 
-const POLL_MS = 15000;
+type AppSettings = { companyName: string; currency: string; notifInterval: number };
+
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  companyName: 'TeknoTech Services',
+  currency: 'USD',
+  notifInterval: 15,
+};
 
 const notifKey = (n: any): string => {
   const value = n && typeof n === 'object' ? n.id ?? n._id : undefined;
@@ -144,6 +150,47 @@ const AppLayout: React.FC = () => {
 
   const userId = user?.id;
 
+  const [appSettings, setAppSettings] = React.useState<AppSettings>(DEFAULT_APP_SETTINGS);
+
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(apiUrl('/api/settings/public'));
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active || !data || typeof data !== 'object') return;
+        const companyName =
+          typeof data.companyName === 'string' && data.companyName.trim()
+            ? data.companyName.trim().slice(0, 80)
+            : DEFAULT_APP_SETTINGS.companyName;
+        const currency =
+          typeof data.currency === 'string' && data.currency ? data.currency : DEFAULT_APP_SETTINGS.currency;
+        const rawInterval = Number(data.notifInterval);
+        const notifInterval =
+          Number.isFinite(rawInterval) && rawInterval >= 5
+            ? Math.round(rawInterval)
+            : DEFAULT_APP_SETTINGS.notifInterval;
+        setAppSettings({ companyName, currency, notifInterval });
+        try {
+          const raw = window.localStorage.getItem('nt_prefs');
+          const parsed = raw ? JSON.parse(raw) : null;
+          const base = parsed && typeof parsed === 'object' ? parsed : {};
+          if (base.currency !== currency) {
+            window.localStorage.setItem('nt_prefs', JSON.stringify({ ...base, currency }));
+          }
+        } catch {
+          /* localStorage no disponible */
+        }
+      } catch {
+        /* sin conexión: se conservan los valores por defecto */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const { quotes, fetchMyQuotes } = useQuotes();
   const { users, fetchTeam } = useTeam();
 
@@ -178,7 +225,7 @@ const AppLayout: React.FC = () => {
       ) {
         const newest = fresh[0];
         try {
-          new Notification((newest && newest.title) || 'TeknoTech Services', {
+          new Notification((newest && newest.title) || appSettings.companyName, {
             body: (newest && newest.message) || 'Tenés una notificación nueva',
           });
         } catch {
@@ -191,7 +238,9 @@ const AppLayout: React.FC = () => {
     } finally {
       inFlightRef.current = false;
     }
-  }, [userId]);
+  }, [userId, appSettings.companyName]);
+
+  const pollIntervalMs = Math.max(5000, appSettings.notifInterval * 1000);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -201,7 +250,7 @@ const AppLayout: React.FC = () => {
     void poll();
     const timer = window.setInterval(() => {
       void poll();
-    }, POLL_MS);
+    }, pollIntervalMs);
     const onVisibilityChange = () => {
       if (!document.hidden) void poll();
     };
@@ -211,7 +260,7 @@ const AppLayout: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       inFlightRef.current = false;
     };
-  }, [userId, poll]);
+  }, [userId, poll, pollIntervalMs]);
 
   React.useEffect(() => {
     if (location.pathname === '/notificaciones') void poll();
@@ -331,6 +380,10 @@ const AppLayout: React.FC = () => {
     );
   };
 
+  const nameParts = appSettings.companyName.trim().split(/\s+/);
+  const nameMain = nameParts[0] || 'TeknoTech';
+  const nameSub = nameParts.slice(1).join(' ');
+
   return (
     <div className="min-h-screen bg-[#0A182E]">
       <aside className="fixed left-0 top-0 h-screen w-72 bg-[#081426] border-r border-[#16294A] flex flex-col z-20">
@@ -338,13 +391,17 @@ const AppLayout: React.FC = () => {
           <div className="w-14 h-14 rounded-2xl bg-[#10233E] border border-[#1877E8]/30 p-1.5 flex items-center justify-center shrink-0 shadow-[0_6px_20px_rgba(0,0,0,0.4)]">
             <img
               src={logoUrl}
-              alt="TeknoTech"
+              alt={appSettings.companyName}
               className="w-full h-full object-contain"
             />
           </div>
           <div className="leading-none">
-            <p className="font-display text-[17px] text-white tracking-[0.12em]">TeknoTech</p>
-            <p className="font-display text-[10px] text-[#1877E8] tracking-[0.42em] mt-1.5">SERVICES</p>
+            <p className="font-display text-[17px] text-white tracking-[0.12em]">{nameMain}</p>
+            {nameSub ? (
+              <p className="font-display text-[10px] text-[#1877E8] tracking-[0.42em] mt-1.5 uppercase">
+                {nameSub}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -357,7 +414,7 @@ const AppLayout: React.FC = () => {
         <div className="border-t border-[#16294A] px-4 py-4">
           <p className="text-[10px] text-[#5B7295] flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
-            Software privado de TeknoTech Services
+            Software privado de {appSettings.companyName}
           </p>
         </div>
       </aside>

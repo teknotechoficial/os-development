@@ -4,8 +4,8 @@ import { AlertCircle, LayoutGrid, Send } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { useQuotes } from '@/renderer/store/quotes';
-import { calculateFinalPrice } from '@/shared/pricing';
-import { MINIMUM_MARGIN, MIN_TOTAL_MESSAGE } from '@/shared/constants';
+import { calculateFinalPrice, minSaleMessage } from '@/shared/pricing';
+import { MINIMUM_MARGIN } from '@/shared/constants';
 import { formatCurrency } from '@/shared/validators';
 import { Service } from '@/shared/types';
 import PriceBreakdown from '@/renderer/components/PriceBreakdown';
@@ -43,10 +43,27 @@ const NewQuote: React.FC = () => {
 	const [services, setServices] = useState<Service[]>([]);
 	const [loadingServices, setLoadingServices] = useState(true);
 	const [selected, setSelected] = useState<Record<string, boolean>>({});
+	const [minFloor, setMinFloor] = useState<number>(MINIMUM_MARGIN);
 
 	useEffect(() => {
 		fetchTeam();
 		fetchAvailability();
+	}, []);
+
+	/* mínimo de venta configurable por el CEO en Ajustes > Empresa */
+	useEffect(() => {
+		fetch(apiUrl('/api/settings/public'))
+			.then((res) => {
+				if (!res.ok) throw new Error('request failed');
+				return res.json();
+			})
+			.then((data: any) => {
+				const floor = Number(data?.marginMinimum);
+				if (Number.isFinite(floor) && floor >= 0) setMinFloor(floor);
+			})
+			.catch(() => {
+				/* sin conexión: se usa el mínimo por defecto */
+			});
 	}, []);
 
 	useEffect(() => {
@@ -64,7 +81,7 @@ const NewQuote: React.FC = () => {
 
 	const seleccionados = services.filter((s) => selected[s.id]);
 	const basePrice = seleccionados.reduce((a, s) => a + s.basePrice, 0);
-	const finalPrice = calculateFinalPrice(basePrice);
+	const finalPrice = calculateFinalPrice(basePrice, minFloor);
 	const aplicaMinimo = seleccionados.length > 0 && finalPrice > basePrice;
 
 	const toggleService = (id: string) =>
@@ -177,7 +194,7 @@ const NewQuote: React.FC = () => {
 
 						<div className="mt-6 border-t border-[#1C3557] pt-4">
 							{aplicaMinimo && (
-								<p className="text-xs text-[#F59E0B]">{MIN_TOTAL_MESSAGE}</p>
+								<p className="text-xs text-[#F59E0B]">{minSaleMessage(minFloor)}</p>
 							)}
 							{!aplicaMinimo && seleccionados.length > 0 && (
 								<p className="text-xs text-[#5B7295]">

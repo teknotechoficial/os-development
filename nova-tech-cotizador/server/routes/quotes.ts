@@ -71,8 +71,11 @@ router.post('/', async (req: any, res: any) => {
 		} else {
 			base = calculateBasePrice(productType, config);
 		}
-		/* Total = sum of selected services (or legacy base), never below the minimum sale price */
-		const finalPrice = calculateFinalPrice(base);
+		/* Total = sum of selected services (or legacy base), never below the
+		   CEO-configured minimum sale price (settings.margin_minimum) */
+		const st = await db.query("SELECT margin_minimum FROM settings WHERE id = 'app'");
+		const floor = st.rows[0] && st.rows[0].margin_minimum !== null ? Number(st.rows[0].margin_minimum) : undefined;
+		const finalPrice = calculateFinalPrice(base, floor);
 		const appliedMargin = finalPrice - base;
 		await db.query(
 			'INSERT INTO quotes (id, client_name, client_type, product_type, config, items, base_price, margin, final_price, seller_id, developer_id, assigned_at, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
