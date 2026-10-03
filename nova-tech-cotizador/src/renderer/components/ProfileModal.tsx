@@ -12,6 +12,31 @@ const INPUT_CLASS =
 	'w-full px-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm';
 const LABEL_CLASS = 'block text-xs uppercase tracking-[0.12em] text-[#8FA6C4] font-semibold mb-1.5';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PREFS_STORAGE_KEY = 'nt_prefs';
+
+const ACCENTS: { value: string; label: string; color: string }[] = [
+	{ value: 'blue', label: 'Azul', color: '#1877E8' },
+	{ value: 'emerald', label: 'Verde', color: '#34D399' },
+	{ value: 'violet', label: 'Violeta', color: '#A78BFA' },
+	{ value: 'amber', label: 'Ámbar', color: '#FBBF24' },
+	{ value: 'rose', label: 'Rosa', color: '#FB7185' },
+	{ value: 'cyan', label: 'Cian', color: '#22D3EE' },
+];
+
+const readStoredAccent = (): string => {
+	try {
+		const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
+		if (!raw) return 'blue';
+		const parsed: unknown = JSON.parse(raw);
+		if (parsed && typeof parsed === 'object') {
+			const accent = (parsed as { accent?: unknown }).accent;
+			if (typeof accent === 'string' && accent) return accent;
+		}
+	} catch {
+		/* localStorage no disponible */
+	}
+	return 'blue';
+};
 
 interface ProfileModalProps {
 	onClose: () => void;
@@ -32,6 +57,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 	const fileRef = React.useRef<HTMLInputElement>(null);
 	const [name, setName] = React.useState(user?.name ?? '');
 	const [email, setEmail] = React.useState(user?.email ?? '');
+	const [title, setTitle] = React.useState(user?.title ?? '');
+	const [phone, setPhone] = React.useState(user?.phone ?? '');
+	const [bio, setBio] = React.useState(user?.bio ?? '');
+	const [accent, setAccent] = React.useState<string>(() => readStoredAccent());
 	const [original, setOriginal] = React.useState<string | null>(null);
 	const [cropperOpen, setCropperOpen] = React.useState(false);
 	const [preview, setPreview] = React.useState<string | null>(null);
@@ -59,7 +88,41 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 		if (dirty) return;
 		setName(me?.name ?? user?.name ?? '');
 		setEmail(me?.email ?? user?.email ?? '');
-	}, [dirty, me?.name, me?.email, user?.name, user?.email]);
+		setTitle(me?.title ?? user?.title ?? '');
+		setPhone(me?.phone ?? user?.phone ?? '');
+		setBio(me?.bio ?? user?.bio ?? '');
+	}, [
+		dirty,
+		me?.name,
+		me?.email,
+		me?.title,
+		me?.phone,
+		me?.bio,
+		user?.name,
+		user?.email,
+		user?.title,
+		user?.phone,
+		user?.bio,
+	]);
+
+	const applyAccent = (value: string) => {
+		setAccent(value);
+		try {
+			const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
+			const parsed = raw ? JSON.parse(raw) : null;
+			const prefs =
+				parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+					? (parsed as Record<string, unknown>)
+					: {};
+			window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify({ ...prefs, accent: value }));
+		} catch {
+			/* localStorage no disponible */
+		}
+		document.documentElement.dataset.accent = value;
+		setDirty(true);
+		setMessage('Apariencia actualizada');
+		setError(null);
+	};
 
 	const handleFile = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -88,6 +151,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 		if (!user) return;
 		const trimmedName = name.trim();
 		const trimmedEmail = email.trim();
+		const trimmedTitle = title.trim();
+		const trimmedPhone = phone.trim();
+		const trimmedBio = bio.trim();
 		if (!trimmedName) {
 			setError('El nombre no puede estar vacío');
 			return;
@@ -100,7 +166,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 		setMessage(null);
 		setError(null);
 		try {
-			const body: Record<string, unknown> = { name: trimmedName, email: trimmedEmail };
+			const body: Record<string, unknown> = {
+				name: trimmedName,
+				email: trimmedEmail,
+				title: trimmedTitle,
+				phone: trimmedPhone,
+				bio: trimmedBio,
+			};
 			if (preview !== null && preview !== (me?.avatar ?? null)) body.avatar = preview;
 			const res = await fetch(apiUrl(`/api/team/${user.id}`), {
 				method: 'PUT',
@@ -110,7 +182,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(data.error || 'Error al guardar');
 			await fetchTeam();
-			updateUser({ name: trimmedName, email: trimmedEmail });
+			updateUser({
+				name: trimmedName,
+				email: trimmedEmail,
+				title: trimmedTitle,
+				phone: trimmedPhone,
+				bio: trimmedBio,
+			});
 			setDirty(false);
 			setMessage('Perfil actualizado');
 		} catch (err) {
@@ -259,6 +337,79 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 									setDirty(true);
 								}}
 							/>
+						</div>
+						<div>
+							<label className={LABEL_CLASS} htmlFor="profile-title">
+								Cargo
+							</label>
+							<input
+								id="profile-title"
+								type="text"
+								className={INPUT_CLASS}
+								value={title}
+								placeholder="Ej: Desarrollador"
+								onChange={(e) => {
+									setTitle(e.target.value);
+									setDirty(true);
+								}}
+							/>
+						</div>
+						<div>
+							<label className={LABEL_CLASS} htmlFor="profile-phone">
+								Teléfono
+							</label>
+							<input
+								id="profile-phone"
+								type="tel"
+								className={INPUT_CLASS}
+								value={phone}
+								placeholder="+52 55 1234 5678"
+								onChange={(e) => {
+									setPhone(e.target.value);
+									setDirty(true);
+								}}
+							/>
+						</div>
+						<div>
+							<label className={LABEL_CLASS} htmlFor="profile-bio">
+								Biografía
+							</label>
+							<textarea
+								id="profile-bio"
+								rows={3}
+								className={INPUT_CLASS}
+								value={bio}
+								placeholder="Cuéntanos un poco sobre ti"
+								onChange={(e) => {
+									setBio(e.target.value);
+									setDirty(true);
+								}}
+							/>
+						</div>
+					</div>
+
+					<div className="space-y-3 pt-1 border-t border-[#16294A]">
+						<p className="text-xs uppercase tracking-[0.12em] text-[#8FA6C4] font-semibold">
+							Apariencia
+						</p>
+						<div>
+							<p className={LABEL_CLASS}>Color de acento</p>
+							<div className="flex flex-wrap gap-2">
+								{ACCENTS.map((item) => (
+									<button
+										key={item.value}
+										type="button"
+										aria-label={`Acento ${item.label}`}
+										data-accent={item.value}
+										title={`Acento ${item.label}`}
+										onClick={() => applyAccent(item.value)}
+										style={{ backgroundColor: item.color }}
+										className={`w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none ${
+											accent === item.value ? 'ring-2 ring-white/70' : ''
+										}`}
+									/>
+								))}
+							</div>
 						</div>
 					</div>
 

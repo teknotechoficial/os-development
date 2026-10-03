@@ -38,6 +38,72 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build25] - 2026-10-03
+
+### Added
+- **Nueva Cotización multi-servicio** (recreado, 268 líneas): Paso 2 carga el
+  catálogo real de `GET /api/services` (solo activos, empty state "Sin servicios
+  disponibles"), selección múltiple con suma en vivo, `#quote-margin` con sugerido
+  `max(250, 15% del base)` y envío `items[] + margin` en el POST; la tabla
+  `quotes.items` (JSON) guarda las líneas y `QuoteDetail` muestra la card
+  "Servicios cotizados" (incluye el detalle en el mensaje de WhatsApp).
+- **Precio compartido `src/shared/pricing.ts`**: `calculateFinalPrice(base, margin?)`
+  con fallback legacy exacto (compat con b13: sin margen explícito →
+  `base + max(250, 15%)`), `calculateSuggestedMargin`, `isValidMargin`,
+  `MARGIN_MIN_MESSAGE` reutilizado por UI y server; PriceBreakdown ahora recibe
+  `{items, basePrice, margin, suggestedMargin, finalPrice}` con fila "Tu margen".
+- **Tareas con roles**: UI `canManageTasks = super_admin || gerente` (form agregar y
+  botón Eliminar solo para ellos; checkbox siempre visible y aviso literal "Solo el
+  CEO y el Gerente General pueden agregar tareas. Podés marcarlas como realizadas."
+  para el resto) y server `POST/DELETE /api/tasks` exigen header `X-User-Role`
+  gerente/CEO → 403 con ese mensaje; `PUT` (marcar) libre.
+- **Ajustes solo CEO**: `/configuracion` envuelta en `ProtectedRoute roles=['super_admin']`
+  (otros roles ven "ACCESO RESTRINGIDO"), item AJUSTES del sidebar con `roles` y
+  render condicional, botón "Configuración" del menú de perfil solo super_admin y
+  `Settings canManage = role === 'super_admin'`.
+- **Perfil ampliado** (ProfileModal 464 líneas): campos `#profile-title` (cargo),
+  `#profile-phone`, `#profile-bio` (hasta 80/40/300 chars, PUT `/api/team/:id` +
+  GET `/api/team` ahora con `title, phone, bio`) y **paleta de 6 acentos**
+  (Azul/Verde/Violeta/Ámbar/Rosa/Cian) que aplica `data-accent` al montar
+  (`--color-primary` en globals.css, Button primario y sidebar activo) y persiste
+  `nt_prefs.accent`.
+- **Notificaciones programadas**: `server/notifications.ts` (`notify`/`notifyRoles`,
+  nunca lanza) + eventos en quotes (quote_created/sent/accepted/rejected/paid/
+  reassigned/deleted), services (service_created/changed) y endpoints
+  `GET /api/notifications`, `/unread-count`, `PUT /read-all`; AppLayout con polling
+  15s (baseline sin beep + `visibilitychange`), `utils/sound.ts` con 4 tonos
+  (classic/soft/urgent/chime) y tono configurable `#settings-sound-tone` en Ajustes,
+  bloque "Mis notificaciones" (`#settings-notif-clear`) y página Notificaciones con
+  "Marcar todas como leídas" (`#notif-mark-all`) + 7 estilos nuevos.
+
+### Fixed
+- **CRÍTICO — margen de $250 USD ya no se suma como valor fijo**: el margen es un
+  piso configurable, no un aditivo. Server `POST /api/quotes` valida
+  `margin < 250 → 400` con `MARGIN_MIN_MESSAGE` (sin `items[]` mantiene la ruta
+  legacy byte a byte para compatibilidad con `verify-b13`), la UI muestra "Mínimo
+  sugerido: $250 USD", el input `#quote-margin` valida y muestra "El margen mínimo
+  es de $250 USD", y `finalPrice = basePrice + margin` consistente en UI, server e
+  `ipc.ts` (`finalPrice - basePrice`).
+
+### E2E
+- Suite completa tras build (setup 80.6 MB, ASAR 40.8 MB): probe nuevo
+  `verify-b25` **37/37** (multi-servicio suma 450=150+300, fila "Tu margen",
+  sugerido 250, margen 100 → mensaje, submit con items[] → final 700, tonos,
+  perfil campos+acentos, gerente sin Ajustes/`#/configuracion` bloqueada/form tareas
+  visible, vendedor sin form+aviso+checkbox+403 server, 0 excepciones),
+  `verify-b13` **78/78**, `verify-settings-new` **24/24** (toggles ahora invariantes
+  al estado inicial), `verify-c/d/b2/v5` exit 0, server probe `verify-b25-server`
+  **26/26**, 0 excepciones/0 console errors.
+- Builder: intentos 1-2 `spawn UNKNOWN` en wine → intento 3 exit 0; **NSIS bloqueado
+  por Control de aplicaciones** → fallback `robocopy /MIR win-unpacked` (ASAR
+  verificado) + atajo recreado; seed de data demo restaurado (8 quotes con estados
+  variados); credenciales de prueba gerente/vendedor habilitadas y **restauradas al
+  estado seed** (`has_credentials=false`) al cerrar; `login_attempts` limpio.
+- Capturas verificadas: `b25-nueva-cotizacion-{servicios,seleccion}.png` (6 servicios
+  BD, 2 seleccionados, Tu margen), `b25-perfil-personalizacion.png` (campos Cargo/
+  Teléfono/Biografía), `b25-gerente-ajustes-bloqueado.png` y `b25-vendedor-tareas.png`
+  (ACCESO RESTRINGIDO sin Ajustes en el sidebar).
+
 ## [1.0.0-build24] - 2026-10-02
 
 ### Added

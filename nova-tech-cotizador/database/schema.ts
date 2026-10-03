@@ -26,7 +26,8 @@ export async function initDatabase(): Promise<void> {
       code TEXT UNIQUE NOT NULL, password_hash TEXT, pin_hash TEXT,
       has_credentials BOOLEAN DEFAULT false, avatar TEXT,
       role TEXT NOT NULL CHECK (role IN ('super_admin','gerente','vendedor','closer','desarrollador')),
-      is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      title TEXT DEFAULT '', phone TEXT DEFAULT '', bio TEXT DEFAULT ''
     )`,
     `CREATE TABLE IF NOT EXISTS quotes (
       id TEXT PRIMARY KEY, client_name TEXT NOT NULL, client_type TEXT NOT NULL,
@@ -34,7 +35,7 @@ export async function initDatabase(): Promise<void> {
       margin REAL DEFAULT 250.0, final_price REAL NOT NULL,
       status TEXT DEFAULT 'borrador', seller_id TEXT NOT NULL, developer_id TEXT,
       assigned_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, items TEXT DEFAULT '[]'
     )`,
     `CREATE TABLE IF NOT EXISTS availability (
       developer_id TEXT PRIMARY KEY REFERENCES users(id), status TEXT DEFAULT 'disponible',
@@ -46,6 +47,8 @@ export async function initDatabase(): Promise<void> {
       quote_id TEXT REFERENCES quotes(id), read BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications (user_id) WHERE read = false`,
     `CREATE TABLE IF NOT EXISTS settings (
       id TEXT PRIMARY KEY DEFAULT 'app', company_name TEXT DEFAULT 'TeknoTech Services',
       payment_alias TEXT DEFAULT 'belo.arg.usd', margin_minimum REAL DEFAULT 250.0,
@@ -89,6 +92,10 @@ export async function initDatabase(): Promise<void> {
     `ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN DEFAULT false`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT DEFAULT ''`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT ''`,
+    `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS items TEXT DEFAULT '[]'`,
     `UPDATE users SET password_hash = NULL WHERE password_hash = 'hashed'`,
     `UPDATE users SET has_credentials = false WHERE password_hash IS NULL AND pin_hash IS NULL`,
     `CREATE TABLE IF NOT EXISTS tasks (

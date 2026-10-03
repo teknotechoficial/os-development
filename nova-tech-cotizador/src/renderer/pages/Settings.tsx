@@ -24,6 +24,8 @@ import AccessLogCard from '@/renderer/components/settings/AccessLogCard';
 import BackupCard from '@/renderer/components/settings/BackupCard';
 import QuotePreviewCard from '@/renderer/components/settings/QuotePreviewCard';
 import MailStatusCard from '@/renderer/components/settings/MailStatusCard';
+import { TONE_OPTIONS, isValidTone, playTone } from '@/renderer/utils/sound';
+import type { SoundTone } from '@/renderer/utils/sound';
 
 const INPUT_CLASS =
 	'w-full px-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm';
@@ -68,6 +70,13 @@ const DEFAULT_SETTINGS: SettingsData = {
 
 type BannerState = { type: 'success' | 'error'; message: string };
 
+interface NotifItem {
+	id: string | number;
+	title: string;
+	message: string;
+	createdAt: string;
+}
+
 const PREFS_STORAGE_KEY = 'nt_prefs';
 const RECENT_LIMIT_OPTIONS = [5, 10, 15];
 
@@ -77,6 +86,8 @@ type UserPrefs = {
 	dateFormat: 'es-ES' | 'iso';
 	notifyDesktop: boolean;
 	sound: boolean;
+	soundTone: string;
+	accent: string;
 };
 
 const DEFAULT_PREFS: UserPrefs = {
@@ -85,6 +96,8 @@ const DEFAULT_PREFS: UserPrefs = {
 	dateFormat: 'es-ES',
 	notifyDesktop: false,
 	sound: false,
+	soundTone: 'classic',
+	accent: 'blue',
 };
 
 const readUserPrefs = (): UserPrefs => {
@@ -94,6 +107,9 @@ const readUserPrefs = (): UserPrefs => {
 		const parsed = JSON.parse(raw) as Partial<UserPrefs> | null;
 		if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PREFS };
 		const limit = typeof parsed.recentLimit === 'number' ? parsed.recentLimit : DEFAULT_PREFS.recentLimit;
+		const soundTone: SoundTone = isValidTone(parsed.soundTone)
+			? parsed.soundTone
+			: (DEFAULT_PREFS.soundTone as SoundTone);
 		return {
 			reducedMotion: parsed.reducedMotion === true,
 			recentLimit: RECENT_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : DEFAULT_PREFS.recentLimit,
@@ -103,6 +119,8 @@ const readUserPrefs = (): UserPrefs => {
 					: DEFAULT_PREFS.dateFormat,
 			notifyDesktop: parsed.notifyDesktop === true,
 			sound: parsed.sound === true,
+			soundTone,
+			accent: typeof parsed.accent === 'string' && parsed.accent ? parsed.accent : DEFAULT_PREFS.accent,
 		};
 	} catch {
 		return { ...DEFAULT_PREFS };
@@ -322,11 +340,16 @@ const Switch: React.FC<SwitchProps> = ({ checked, onChange, ariaLabel }) => (
 	</button>
 );
 
+const formatNotifDate = (value: string): string => {
+	const date = new Date(value);
+	return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('es-ES');
+};
+
 const Settings: React.FC = () => {
 	const { user } = useAuth();
 	const { users, fetchTeam } = useTeam();
 	const role = user?.role;
-	const canManage = role === 'super_admin' || role === 'gerente';
+	const canManage = role === 'super_admin';
 
 	const me = user ? users.find((u) => u.id === user.id) : undefined;
 	const avatarUrl = me?.avatar ?? user?.avatar ?? null;
@@ -354,6 +377,9 @@ const Settings: React.FC = () => {
 	const [notifyDenied, setNotifyDenied] = useState(false);
 	const [notifyError, setNotifyError] = useState<string | null>(null);
 	const [soundError, setSoundError] = useState<string | null>(null);
+
+	const [notifItems, setNotifItems] = useState<NotifItem[]>([]);
+	const [notifLoading, setNotifLoading] = useState(false);
 
 	const [accessRefresh, setAccessRefresh] = useState(0);
 	const [mailTick, setMailTick] = useState(0);
@@ -401,6 +427,40 @@ const Settings: React.FC = () => {
 			active = false;
 		};
 	}, [fetchSettings]);
+
+	const fetchNotifications = useCallback(async () => {
+		setNotifLoading(true);
+		try {
+			const response = await fetch(
+				apiUrl('/api/notifications?userId=' + (user?.id ?? '') + '&limit=5'),
+			);
+			const data = await response.json().catch(() => []);
+			if (response.ok && Array.isArray(data)) setNotifItems(data.slice(0, 5));
+		} catch {
+			/* sin conexión: se conserva la lista actual */
+		} finally {
+			setNotifLoading(false);
+		}
+	}, [user?.id]);
+
+	useEffect(() => {
+		if (activeTab !== 'cuenta' || !user?.id) return;
+		void fetchNotifications();
+	}, [activeTab, user?.id, fetchNotifications]);
+
+	const handleMarkAllRead = async () => {
+		if (!user?.id) return;
+		try {
+			await fetch(apiUrl('/api/notifications/read-all'), {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: user.id }),
+			});
+		} catch {
+			/* sin conexión: se reintenta con el refetch */
+		}
+		void fetchNotifications();
+	};
 
 	const handleSave = async (event: React.FormEvent) => {
 		event.preventDefault();
@@ -610,22 +670,7 @@ const Settings: React.FC = () => {
 	const handleTestSound = () => {
 		setSoundError(null);
 		try {
-			const AudioContextCtor =
-				window.AudioContext || (window as any).webkitAudioContext;
-			if (!AudioContextCtor) throw new Error('AudioContext no disponible');
-			const context: AudioContext = new AudioContextCtor();
-			const oscillator = context.createOscillator();
-			const gain = context.createGain();
-			oscillator.type = 'sine';
-			oscillator.frequency.value = 880;
-			gain.gain.value = 0.05;
-			oscillator.connect(gain);
-			gain.connect(context.destination);
-			oscillator.start();
-			oscillator.stop(context.currentTime + 0.15);
-			oscillator.onended = () => {
-				context.close().catch(() => undefined);
-			};
+			playTone(prefs.soundTone);
 		} catch {
 			setSoundError('No se pudo reproducir el sonido');
 		}
@@ -865,6 +910,52 @@ const Settings: React.FC = () => {
 					<Card className={`p-6 ${CARD_CLASS}`}>
 						<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
 							<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+								<Bell className="w-4 h-4" />
+							</span>
+							<div>
+								<h2 className={SECTION_TITLE}>Mis notificaciones</h2>
+								<p className="text-xs text-[#5B7295]">Tus alertas más recientes</p>
+							</div>
+						</div>
+
+						{notifLoading ? (
+							<div className="flex justify-center py-6">
+								<Spinner />
+							</div>
+						) : notifItems.length === 0 ? (
+							<p className="text-sm text-[#5B7295]">Sin notificaciones</p>
+						) : (
+							<ul className="space-y-3">
+								{notifItems.map((item) => (
+									<li
+										key={item.id}
+										className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3"
+									>
+										<p className="text-sm text-white font-medium">{item.title}</p>
+										<p className="text-sm text-[#D6E2F2] mt-0.5">{item.message}</p>
+										<p className="text-[11px] uppercase tracking-widest text-[#5B7295] mt-1">
+											{formatNotifDate(item.createdAt)}
+										</p>
+									</li>
+								))}
+							</ul>
+						)}
+
+						<div className="mt-4">
+							<Button
+								type="button"
+								variant="secondary"
+								id="settings-notif-clear"
+								onClick={() => void handleMarkAllRead()}
+							>
+								MARCAR TODAS COMO LEÍDAS
+							</Button>
+						</div>
+					</Card>
+
+					<Card className={`p-6 ${CARD_CLASS}`}>
+						<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+							<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
 								<Sliders className="w-4 h-4" />
 							</span>
 							<div>
@@ -943,6 +1034,27 @@ const Settings: React.FC = () => {
 										PROBAR SONIDO
 									</Button>
 								</div>
+							</div>
+
+							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">
+								<label htmlFor="settings-sound-tone" className={LABEL_CLASS}>
+									Tono de notificación
+								</label>
+								<select
+									id="settings-sound-tone"
+									className={INPUT_CLASS}
+									value={prefs.soundTone}
+									onChange={(e) => applyPrefs({ ...prefs, soundTone: e.target.value })}
+								>
+									{TONE_OPTIONS.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+								<p className="text-xs text-[#5B7295] mt-2">
+									Tono que suena al llegar una notificación nueva
+								</p>
 							</div>
 
 							<div className="rounded-xl border border-[#1C3557] bg-[#0C1E36] px-4 py-3">

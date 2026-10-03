@@ -1,10 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Bell, CheckCircle2, Inbox, UserPlus, XCircle } from 'lucide-react';
+import {
+	Bell,
+	CheckCircle2,
+	DollarSign,
+	FilePlus2,
+	Inbox,
+	Send,
+	Settings,
+	Tag,
+	Trash2,
+	UserPlus,
+	XCircle,
+} from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { apiUrl } from '@/renderer/api';
 import type { Notification } from '@/shared/types';
-import { Card, EmptyState, PageHeader, Spinner } from '@/renderer/components/ui';
+import { Button, Card, EmptyState, PageHeader, Spinner } from '@/renderer/components/ui';
 
 interface NotificationStyle {
 	icon: LucideIcon;
@@ -16,6 +28,13 @@ const NOTIFICATION_STYLES: Record<string, NotificationStyle> = {
 	quote_reassigned: { icon: UserPlus, iconClass: 'bg-[#1877E8]/15 text-[#60A5FA]' },
 	quote_accepted: { icon: CheckCircle2, iconClass: 'bg-[#22C55E]/15 text-[#34D399]' },
 	quote_rejected: { icon: XCircle, iconClass: 'bg-[#E11D48]/15 text-[#FB7185]' },
+	quote_created: { icon: FilePlus2, iconClass: 'bg-[#1877E8]/15 text-[#60A5FA]' },
+	quote_sent: { icon: Send, iconClass: 'bg-[#38BDF8]/15 text-[#7DD3FC]' },
+	quote_paid: { icon: DollarSign, iconClass: 'bg-[#22C55E]/15 text-[#34D399]' },
+	quote_deleted: { icon: Trash2, iconClass: 'bg-[#E11D48]/15 text-[#FB7185]' },
+	service_created: { icon: Tag, iconClass: 'bg-[#A855F7]/15 text-[#C084FC]' },
+	service_changed: { icon: Settings, iconClass: 'bg-[#F59E0B]/15 text-[#FBBF24]' },
+	member_added: { icon: UserPlus, iconClass: 'bg-[#1877E8]/15 text-[#60A5FA]' },
 };
 
 const DEFAULT_STYLE: NotificationStyle = { icon: Bell, iconClass: 'bg-[#1C3557] text-[#8FA6C4]' };
@@ -39,28 +58,56 @@ const Notifications: React.FC = () => {
 	const { user } = useAuth();
 	const [notifications, setNotifications] = useState<Notification[]>([]);
 	const [loading, setLoading] = useState(true);
+	const mountedRef = useRef(true);
 
-	useEffect(() => {
-		if (!user) {
-			setLoading(false);
-			return;
+	const fetchNotifications = useCallback(async (): Promise<boolean> => {
+		if (!user) return false;
+		try {
+			const response = await fetch(apiUrl(`/api/notifications?userId=${user.id}&limit=50`));
+			const data = response.ok ? await response.json() : [];
+			if (Array.isArray(data)) {
+				setNotifications(data);
+				return true;
+			}
+		} catch {
+			/* servidor inalcanzable: se conserva la lista actual */
 		}
-		let active = true;
-		fetch(apiUrl(`/api/notifications?userId=${user.id}`))
-			.then((res) => (res.ok ? res.json() : []))
-			.then((data) => {
-				if (active && Array.isArray(data)) setNotifications(data);
-			})
-			.catch(() => undefined)
-			.finally(() => {
-				if (active) setLoading(false);
-			});
-		return () => {
-			active = false;
-		};
+		return false;
 	}, [user]);
 
+	useEffect(() => {
+		mountedRef.current = true;
+		if (!user) {
+			setLoading(false);
+			return () => {
+				mountedRef.current = false;
+			};
+		}
+		fetchNotifications().finally(() => {
+			if (mountedRef.current) setLoading(false);
+		});
+		return () => {
+			mountedRef.current = false;
+		};
+	}, [user, fetchNotifications]);
+
 	const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+	const markAllRead = async () => {
+		if (!user || unreadCount === 0) return;
+		try {
+			const response = await fetch(apiUrl('/api/notifications/read-all'), {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: user.id }),
+			});
+			if (!response.ok) throw new Error();
+			setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+			await fetchNotifications();
+		} catch {
+			/* sin conexión: el contador conserva el estado actual */
+		}
+	};
 
 	const markRead = async (notification: Notification) => {
 		if (notification.read) return;
@@ -85,10 +132,17 @@ const Notifications: React.FC = () => {
 				title="Notificaciones"
 				subtitle={`${unreadCount} sin leer`}
 				actions={
-					<span className="inline-flex items-center gap-2 rounded-full bg-[#1877E8]/10 border border-[#1877E8]/40 px-3 py-1 text-[11px] uppercase tracking-widest text-[#60A5FA]">
-						<span className="w-2 h-2 rounded-full bg-[#1877E8]" />
-						{unreadCount} sin leídas
-					</span>
+					<>
+						{unreadCount > 0 && (
+							<Button variant="secondary" id="notif-mark-all" onClick={markAllRead}>
+								MARCAR TODAS COMO LEÍDAS
+							</Button>
+						)}
+						<span className="inline-flex items-center gap-2 rounded-full bg-[#1877E8]/10 border border-[#1877E8]/40 px-3 py-1 text-[11px] uppercase tracking-widest text-[#60A5FA]">
+							<span className="w-2 h-2 rounded-full bg-[#1877E8]" />
+							{unreadCount} sin leídas
+						</span>
+					</>
 				}
 			/>
 

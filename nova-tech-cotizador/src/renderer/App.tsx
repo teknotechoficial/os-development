@@ -53,7 +53,14 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/configuracion" element={<Settings />} />
+          <Route
+            path="/configuracion"
+            element={
+              <ProtectedRoute roles={['super_admin']}>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

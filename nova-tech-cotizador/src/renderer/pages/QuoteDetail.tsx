@@ -12,6 +12,7 @@ import { useAuth } from '@/renderer/store/auth';
 import { useQuotes } from '@/renderer/store/quotes';
 import { useTeam } from '@/renderer/store/team';
 import { PRODUCT_NAMES, STATUS_LABELS } from '@/shared/constants';
+import type { QuoteItem } from '@/shared/types';
 import { formatCurrency } from '@/shared/validators';
 import { Button, Card, EmptyState, PageHeader, Spinner } from '@/renderer/components/ui';
 import StatusBadge from '@/renderer/components/StatusBadge';
@@ -109,8 +110,13 @@ const QuoteDetail: React.FC = () => {
 			`Cliente: ${quote.clientName}`,
 			`Producto: ${PRODUCT_NAMES[quote.productType] ?? quote.productType}`,
 			`Precio: ${formatCurrency(quote.finalPrice)}`,
-			`Estado: ${STATUS_LABELS[quote.status] ?? quote.status}`,
 		];
+		if (quote.items?.length) {
+			for (const item of quote.items) {
+				lines.push(`${item.name} x${item.quantity}: ${formatCurrency(item.unitPrice * item.quantity)}`);
+			}
+		}
+		lines.push(`Estado: ${STATUS_LABELS[quote.status] ?? quote.status}`);
 		window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')));
 	};
 
@@ -145,8 +151,12 @@ const QuoteDetail: React.FC = () => {
 	}
 
 	const configEntries = Object.entries(quote.config ?? {}).filter(
-		([, value]) => value !== null && value !== undefined && value !== ''
+		([key, value]) =>
+			key !== 'services' && value !== null && value !== undefined && value !== ''
 	);
+
+	const items: QuoteItem[] = quote.items ?? [];
+	const servicesTotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
 	return (
 		<div className="max-w-5xl mx-auto space-y-6">
@@ -183,6 +193,28 @@ const QuoteDetail: React.FC = () => {
 							</dl>
 						)}
 					</Card>
+
+					{quote.items && quote.items.length > 0 && (
+						<Card className="p-6">
+							<h2 className={CARD_TITLE}>Servicios cotizados</h2>
+							<dl>
+								{items.map((item) => (
+									<div key={item.serviceId} className={DETAIL_ROW}>
+										<dt className="text-[#5B7295]">
+											{item.name} ×{item.quantity}
+										</dt>
+										<dd className="text-[#D6E2F2] text-right">
+											{formatCurrency(item.unitPrice * item.quantity)}
+										</dd>
+									</div>
+								))}
+								<div className={DETAIL_ROW}>
+									<dt className="text-[#5B7295]">Subtotal</dt>
+									<dd className="text-[#D6E2F2] text-right">{formatCurrency(servicesTotal)}</dd>
+								</div>
+							</dl>
+						</Card>
+					)}
 
 					<Card className="p-6">
 						<h2 className={CARD_TITLE}>Detalle</h2>

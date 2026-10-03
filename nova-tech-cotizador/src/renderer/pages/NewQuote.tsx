@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Send } from 'lucide-react';
+import { AlertCircle, LayoutGrid, Send } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { useQuotes } from '@/renderer/store/quotes';
-import { calculateBasePrice, calculateFinalPrice } from '@/shared/pricing';
-import { validateQuote } from '@/shared/validators';
-import { QuoteConfig, ProductType } from '@/shared/types';
-import ProductSelector from '@/renderer/components/ProductSelector';
-import ConfigForm from '@/renderer/components/ConfigForm';
+import { calculateSuggestedMargin, isValidMargin } from '@/shared/pricing';
+import { MARGIN_MIN_MESSAGE } from '@/shared/constants';
+import { formatCurrency } from '@/shared/validators';
+import { Service } from '@/shared/types';
 import PriceBreakdown from '@/renderer/components/PriceBreakdown';
 import DeveloperSelector from '@/renderer/components/DeveloperSelector';
 import { apiUrl } from '@/renderer/api';
-import { Button, Card, PageHeader } from '@/renderer/components/ui';
+import { Button, Card, EmptyState, PageHeader, Spinner } from '@/renderer/components/ui';
 
 const STEP_LABEL = 'font-display text-[11px] tracking-[0.2em] text-[#5B7295] mb-3 uppercase';
 
@@ -24,32 +23,69 @@ const FIELD_INPUT =
 const FIELD_SELECT =
 	'w-full bg-[#0C1E36] border border-[#1C3557] text-[#D6E2F2] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30';
 
+const SERVICE_CARD = (active: boolean) =>
+	`border rounded-xl p-4 text-left transition-all ${
+		active
+			? 'border-[#1877E8] bg-[#1877E8]/10 text-white shadow-lg shadow-blue-900/30'
+			: 'bg-[#0C1E36] border-[#1C3557] text-[#8FA6C4] hover:border-[#1877E8]/60 hover:text-white cursor-pointer'
+	}`;
+
 const NewQuote: React.FC = () => {
 	const { user } = useAuth();
 	const { availabilities, fetchTeam, fetchAvailability } = useTeam();
 	const { addQuote } = useQuotes();
 	const navigate = useNavigate();
 
-	const [productType, setProductType] = useState<ProductType>('web');
-	const [config, setConfig] = useState<QuoteConfig>({});
 	const [selectedDeveloper, setSelectedDeveloper] = useState<string>('');
-	const [clientName, setClientName] = React.useState('');
-	const [clientType, setClientType] = React.useState<'empresa' | 'marca_personal'>('empresa');
-	const [errors, setErrors] = React.useState<string[]>([]);
+	const [clientName, setClientName] = useState('');
+	const [clientType, setClientType] = useState<'empresa' | 'marca_personal'>('empresa');
+	const [errors, setErrors] = useState<string[]>([]);
+	const [services, setServices] = useState<Service[]>([]);
+	const [loadingServices, setLoadingServices] = useState(true);
+	const [selected, setSelected] = useState<Record<string, boolean>>({});
+	const [margin, setMargin] = useState('');
+	const [marginTouched, setMarginTouched] = useState(false);
 
 	useEffect(() => {
 		fetchTeam();
 		fetchAvailability();
 	}, []);
 
-	const basePrice = calculateBasePrice(productType, config);
-	const finalPrice = calculateFinalPrice(basePrice);
-	const availableDevs = availabilities;
+	useEffect(() => {
+		fetch(apiUrl('/api/services'))
+			.then((res) => {
+				if (!res.ok) throw new Error('request failed');
+				return res.json();
+			})
+			.then((data: any) => {
+				setServices(Array.isArray(data?.services) ? data.services : []);
+			})
+			.catch(() => setServices([]))
+			.finally(() => setLoadingServices(false));
+	}, []);
+
+	const seleccionados = services.filter((s) => selected[s.id]);
+	const basePrice = seleccionados.reduce((a, s) => a + s.basePrice, 0);
+	const suggestedMargin = calculateSuggestedMargin(basePrice);
+	const marginNum = Number(margin);
+	const validMargin = isValidMargin(marginNum) ? marginNum : suggestedMargin;
+	const finalPrice = basePrice + validMargin;
+
+	useEffect(() => {
+		if (!marginTouched) setMargin(String(suggestedMargin));
+	}, [suggestedMargin, marginTouched]);
+
+	const toggleService = (id: string) =>
+		setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
 
 	const handleSubmit = async () => {
-		const validation = validateQuote(productType, config, clientName);
-		if (!validation.valid) {
-			setErrors(validation.errors);
+		const nextErrors: string[] = [];
+		if (!clientName || clientName.trim().length < 2)
+			nextErrors.push('El nombre del cliente debe tener al menos 2 caracteres');
+		if (seleccionados.length === 0) nextErrors.push('Seleccioná al menos un servicio.');
+		if (!isValidMargin(marginNum)) nextErrors.push(MARGIN_MIN_MESSAGE);
+		if (nextErrors.length > 0) {
+			setErrors(nextErrors);
 			return;
 		}
 		setErrors([]);
@@ -58,17 +94,22 @@ const NewQuote: React.FC = () => {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					productType,
-					config,
+					productType: 'custom',
+					config: { services: seleccionados.map((s) => s.name) },
 					clientName,
 					clientType,
 					sellerId: user!.id,
 					developerId: selectedDeveloper || null,
+					items: seleccionados.map((s) => ({ serviceId: s.id, quantity: 1 })),
+					margin: validMargin,
 				}),
 			});
-			if (!response.ok) throw new Error('Error al guardar');
-			const saved = await response.json();
-			addQuote(saved);
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok || data?.error) {
+				setErrors([data?.error || 'Error al guardar']);
+				return;
+			}
+			addQuote(data);
 			navigate('/cotizaciones');
 		} catch {
 			setErrors(['No se pudo guardar la cotización. Verificá que el servidor esté activo.']);
@@ -107,25 +148,99 @@ const NewQuote: React.FC = () => {
 				</div>
 			</Card>
 
-			<Card className="p-6">
-				<p className={STEP_LABEL}>Paso 2 — Producto</p>
-				<ProductSelector productType={productType} onChange={setProductType} />
+			<Card className="p-6" id="quote-services">
+				<p className={STEP_LABEL}>Paso 2 — Servicios</p>
+				{loadingServices ? (
+					<div className="flex items-center justify-center py-10">
+						<Spinner className="w-6 h-6" />
+					</div>
+				) : services.length === 0 ? (
+					<EmptyState
+						icon={LayoutGrid}
+						title="Sin servicios disponibles"
+						description="Agregá servicios en el apartado Servicios para poder cotizar."
+					/>
+				) : (
+					<>
+						<div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+							{services.map((s) => (
+								<button
+									key={s.id}
+									type="button"
+									onClick={() => toggleService(s.id)}
+									className={SERVICE_CARD(!!selected[s.id])}
+								>
+									<h3 className="font-display text-sm font-semibold uppercase tracking-wide text-white">
+										{s.name}
+									</h3>
+									{s.category && (
+										<p className="text-[11px] uppercase tracking-[0.12em] text-[#5B7295] mt-1">
+											{s.category}
+										</p>
+									)}
+									<p className="mt-2 text-sm font-semibold text-[#D6E2F2]">
+										{formatCurrency(s.basePrice)}
+									</p>
+								</button>
+							))}
+						</div>
+
+						<div className="mt-6 border-t border-[#1C3557] pt-4">
+							<div className="flex items-end justify-between gap-3">
+								<div className="flex-1">
+									<label htmlFor="quote-margin" className={FIELD_LABEL}>
+										Tu margen (USD)
+									</label>
+									<input
+										id="quote-margin"
+										type="number"
+										min={250}
+										value={margin}
+										onChange={(e) => {
+											setMargin(e.target.value);
+											setMarginTouched(true);
+										}}
+										className={FIELD_INPUT}
+										placeholder="250"
+									/>
+								</div>
+								<button
+									type="button"
+									id="quote-margin-suggested"
+									onClick={() => setMargin(String(suggestedMargin))}
+									className="mb-3 text-[11px] uppercase tracking-[0.12em] text-[#1877E8] hover:text-white transition-colors"
+								>
+									Usar sugerido
+								</button>
+							</div>
+							{margin !== '' && !isValidMargin(marginNum) && (
+								<p className="mt-2 text-xs text-[#E11D48]">{MARGIN_MIN_MESSAGE}</p>
+							)}
+						</div>
+					</>
+				)}
 			</Card>
 
-			<Card className="p-6">
-				<p className={STEP_LABEL}>Paso 3 — Configuración</p>
-				<ConfigForm productType={productType} config={config} onChange={setConfig} />
-			</Card>
+			{user?.role !== 'desarrollador' && (
+				<div>
+					<p className={STEP_LABEL}>Paso 3 — Desarrollador</p>
+					<DeveloperSelector
+						selectedDeveloper={selectedDeveloper}
+						onChange={setSelectedDeveloper}
+						availableDevs={availabilities}
+					/>
+				</div>
+			)}
 
-			<PriceBreakdown basePrice={basePrice} finalPrice={finalPrice} />
-
-		{user?.role !== 'desarrollador' && (
-			<DeveloperSelector
-				selectedDeveloper={selectedDeveloper}
-				onChange={setSelectedDeveloper}
-				availableDevs={availableDevs}
-			/>
-		)}
+			{seleccionados.length > 0 && (
+				<PriceBreakdown
+					items={seleccionados.map((s) => ({ name: s.name, unitPrice: s.basePrice, quantity: 1 }))}
+					basePrice={basePrice}
+					margin={validMargin}
+					suggestedMargin={suggestedMargin}
+					finalPrice={finalPrice}
+				/>
+			)}
 
 			{errors.length > 0 && (
 				<div className="flex items-start gap-3 text-[#FB7185] bg-[#E11D48]/10 border border-[#E11D48]/30 rounded-xl p-4">

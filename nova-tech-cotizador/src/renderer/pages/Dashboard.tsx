@@ -79,6 +79,7 @@ const formatTickValue = (v: number): string => {
 
 const Dashboard: React.FC = () => {
 	const { user } = useAuth();
+	const canManageTasks = user?.role === 'super_admin' || user?.role === 'gerente';
 	const { quotes, fetchMyQuotes } = useQuotes();
 	const navigate = useNavigate();
 	const [loading, setLoading] = useState(true);
@@ -111,7 +112,7 @@ const Dashboard: React.FC = () => {
 		try {
 			const r = await fetch(apiUrl('/api/tasks'), {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', 'X-User-Role': user?.role ?? '' },
 				body: JSON.stringify({ title }),
 			});
 			const data = await r.json();
@@ -139,7 +140,10 @@ const Dashboard: React.FC = () => {
 	const deleteTask = async (task: Task) => {
 		setTasks((prev) => prev.filter((t) => t.id !== task.id));
 		try {
-			await fetch(apiUrl(`/api/tasks/${task.id}`), { method: 'DELETE' });
+			await fetch(apiUrl(`/api/tasks/${task.id}`), {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json', 'X-User-Role': user?.role ?? '' },
+			});
 		} catch {
 			setTasks((prev) => [task, ...prev]);
 		}
@@ -277,20 +281,26 @@ const Dashboard: React.FC = () => {
 						) : null}
 					</h2>
 				</div>
-				<form onSubmit={addTask} className="flex gap-2 mb-4">
-					<input
-						type="text"
-						value={taskInput}
-						onChange={(e) => setTaskInput(e.target.value)}
-						placeholder="Anotá una tarea..."
-						aria-label="Nueva tarea"
-						className="flex-1 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl px-4 py-2.5 text-sm"
-					/>
-					<Button variant="primary" type="submit">
-						<Plus className="w-4 h-4" />
-						Agregar
-					</Button>
-				</form>
+				{canManageTasks ? (
+					<form onSubmit={addTask} className="flex gap-2 mb-4">
+						<input
+							type="text"
+							value={taskInput}
+							onChange={(e) => setTaskInput(e.target.value)}
+							placeholder="Anotá una tarea..."
+							aria-label="Nueva tarea"
+							className="flex-1 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl px-4 py-2.5 text-sm"
+						/>
+						<Button variant="primary" type="submit">
+							<Plus className="w-4 h-4" />
+							Agregar
+						</Button>
+					</form>
+				) : (
+					<p className="mb-4 text-[#5B7295] text-xs">
+						Solo el CEO y el Gerente General pueden agregar tareas. Podés marcarlas como realizadas.
+					</p>
+				)}
 				{tasksLoading ? (
 					<div className="flex justify-center py-6">
 						<Spinner />
@@ -338,14 +348,16 @@ const Dashboard: React.FC = () => {
 								>
 									{task.title}
 								</span>
-								<button
-									type="button"
-									onClick={() => deleteTask(task)}
-									aria-label={`Eliminar tarea ${task.title}`}
-									className="text-[#5B7295] hover:text-[#FB7185] transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
-								>
-									<Trash2 className="w-4 h-4" />
-								</button>
+								{canManageTasks ? (
+									<button
+										type="button"
+										onClick={() => deleteTask(task)}
+										aria-label={`Eliminar tarea ${task.title}`}
+										className="text-[#5B7295] hover:text-[#FB7185] transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+									>
+										<Trash2 className="w-4 h-4" />
+									</button>
+								) : null}
 							</li>
 						))}
 					</ul>

@@ -10,7 +10,7 @@ const BUTTON_BASE =
   'inline-flex items-center justify-center gap-2 rounded-xl font-semibold uppercase tracking-wide transition-all duration-150 btn-press focus:outline-none focus:ring-2 focus:ring-[#1877E8]/40 disabled:opacity-50 disabled:cursor-not-allowed';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-[#1877E8] text-white hover:bg-[#0F65CC] shadow-lg shadow-blue-900/30 btn-sweep',
+  primary: 'bg-[var(--color-primary)] text-white hover:bg-[#0F65CC] shadow-lg shadow-blue-900/30 btn-sweep',
   secondary: 'bg-transparent border border-[#2E4A75] text-[#B8C9E0] hover:bg-[#14294A]',
   danger: 'bg-[#E11D48] text-white hover:bg-[#BE123C]',
   ghost: 'text-[#8FA6C4] hover:text-white hover:bg-[#14294A]',

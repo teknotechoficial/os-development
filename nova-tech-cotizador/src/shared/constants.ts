@@ -25,6 +25,7 @@ export const COMPANY = {
 
 export const MINIMUM_MARGIN = 250;
 export const PERCENTAGE_MARGIN_RATE = 0.15;
+export const MARGIN_MIN_MESSAGE = 'El margen mínimo es de $250 USD';
 
 export const PRODUCT_NAMES: Record<string, string> = {
   web: 'Página Web',

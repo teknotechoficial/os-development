@@ -4,6 +4,11 @@ import { getPool, mapRows, toCamel } from '../db';
 
 const router = Router();
 
+const canManage = (req: any): boolean => {
+	const r = req.headers['x-user-role'];
+	return r === 'super_admin' || r === 'gerente';
+};
+
 // GET /api/tasks
 router.get('/', async (_req: any, res: any) => {
   const db = getPool();
@@ -18,6 +23,8 @@ router.get('/', async (_req: any, res: any) => {
 
 // POST /api/tasks
 router.post('/', async (req: any, res: any) => {
+	if (!canManage(req))
+		return res.status(403).json({ error: 'Solo el CEO y el Gerente General pueden agregar tareas' });
   const db = getPool();
   try {
     const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
@@ -63,6 +70,8 @@ router.put('/:id', async (req: any, res: any) => {
 
 // DELETE /api/tasks/:id
 router.delete('/:id', async (req: any, res: any) => {
+	if (!canManage(req))
+		return res.status(403).json({ error: 'Solo el CEO y el Gerente General pueden gestionar tareas' });
   const db = getPool();
   try {
     const r = await db.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);

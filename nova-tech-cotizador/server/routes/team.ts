@@ -8,7 +8,7 @@ router.get('/', async (_req: any, res: any) => {
   const db = getPool();
   try {
     const u = await db.query(
-      'SELECT id, name, code, role, email, is_active, has_credentials, avatar, created_at FROM users ORDER BY role, name'
+      'SELECT id, name, code, role, email, is_active, has_credentials, avatar, title, phone, bio, created_at FROM users ORDER BY role, name'
     );
     res.json(mapRows(u.rows));
   } catch (err) {
@@ -36,12 +36,26 @@ const VALID_ROLES = ['super_admin', 'gerente', 'vendedor', 'closer', 'desarrolla
 
 router.put('/:id', async (req: any, res: any) => {
   const db = getPool();
-  const { role, name, email, avatar } = req.body;
-  try {
-    if (role !== undefined && !VALID_ROLES.includes(role)) {
-      return res.status(400).json({ error: 'Sector no válido' });
-    }
-    const sets: string[] = [];
+	const { role, name, email, avatar, title, phone, bio } = req.body;
+	try {
+		if (role !== undefined && !VALID_ROLES.includes(role)) {
+			return res.status(400).json({ error: 'Sector no válido' });
+		}
+		const textFields: [string, any, number][] = [
+			['title', title, 80],
+			['phone', phone, 40],
+			['bio', bio, 300],
+		];
+		for (const [, value, max] of textFields) {
+			if (value === undefined || value === null) continue;
+			if (typeof value !== 'string') {
+				return res.status(400).json({ error: 'Formato no válido' });
+			}
+			if (value.trim().length > max) {
+				return res.status(400).json({ error: 'Texto demasiado largo' });
+			}
+		}
+		const sets: string[] = [];
     const values: any[] = [];
     if (role !== undefined) {
       values.push(role);
@@ -63,17 +77,29 @@ router.put('/:id', async (req: any, res: any) => {
       if (value && value.length > 400000) {
         return res.status(400).json({ error: 'La imagen es demasiado grande (máx. 300 KB)' });
       }
-      values.push(value);
-      sets.push(`avatar = $${values.length}`);
-    }
-    if (sets.length === 0) {
-      return res.status(400).json({ error: 'No hay datos para actualizar' });
-    }
-    values.push(req.params.id);
-    const r = await db.query(
-      `UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, code, role, email`,
-      values
-    );
+			values.push(value);
+			sets.push(`avatar = $${values.length}`);
+		}
+		if (title !== undefined) {
+			values.push(title === null ? null : title.trim());
+			sets.push(`title = $${values.length}`);
+		}
+		if (phone !== undefined) {
+			values.push(phone === null ? null : phone.trim());
+			sets.push(`phone = $${values.length}`);
+		}
+		if (bio !== undefined) {
+			values.push(bio === null ? null : bio.trim());
+			sets.push(`bio = $${values.length}`);
+		}
+		if (sets.length === 0) {
+			return res.status(400).json({ error: 'No hay datos para actualizar' });
+		}
+		values.push(req.params.id);
+		const r = await db.query(
+			`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, code, role, email, title, phone, bio`,
+			values
+		);
     if (r.rowCount === 0) return res.status(400).json({ error: 'Usuario no encontrado.' });
     res.json({ ...mapRows(r.rows)[0], success: true });
   } catch (err) {

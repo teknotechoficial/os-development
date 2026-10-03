@@ -157,10 +157,15 @@ export function calculateBasePrice(productType: ProductType, config: QuoteConfig
   return Math.round(price);
 }
 
-export function calculateFinalPrice(basePrice: number): number {
-  const percentageMargin = basePrice * PERCENTAGE_MARGIN_RATE;
-  const appliedMargin = Math.max(MINIMUM_MARGIN, percentageMargin);
-  return Math.round(basePrice + appliedMargin);
+export function calculateFinalPrice(basePrice: number, margin?: number): number {
+  const applied = typeof margin === 'number' && isFinite(margin) ? Math.round(margin) : Math.max(MINIMUM_MARGIN, basePrice * PERCENTAGE_MARGIN_RATE);
+  return Math.round(basePrice + applied);
+}
+export function calculateSuggestedMargin(basePrice: number): number {
+  return Math.round(Math.max(MINIMUM_MARGIN, basePrice * PERCENTAGE_MARGIN_RATE));
+}
+export function isValidMargin(margin: number): boolean {
+  return isFinite(margin) && margin >= MINIMUM_MARGIN;
 }
 
 export function getProductDetails(productType: ProductType, config: QuoteConfig): string[] {

@@ -46,7 +46,7 @@ function registerHandlers() {
       const now = new Date().toISOString();
       await db.query(
         'INSERT INTO quotes (id, client_name, client_type, product_type, config, base_price, margin, final_price, status, seller_id, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-        [id, quoteData.clientName, quoteData.clientType, quoteData.productType, JSON.stringify(quoteData.config), basePrice, 250, finalPrice, 'borrador', quoteData.sellerId, now, now]
+        [id, quoteData.clientName, quoteData.clientType, quoteData.productType, JSON.stringify(quoteData.config), basePrice, finalPrice - basePrice, finalPrice, 'borrador', quoteData.sellerId, now, now]
       );
       return { id, success: true };
     } catch (err) {

@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 :root { --color-primary: #1877E8; --color-dark: #081426; --color-bg: #0A182E; --color-text: #E6EDF7; }
+[data-accent='blue'] { --color-primary: #1877E8; }
+[data-accent='emerald'] { --color-primary: #34D399; }
+[data-accent='violet'] { --color-primary: #A78BFA; }
+[data-accent='amber'] { --color-primary: #FBBF24; }
+[data-accent='rose'] { --color-primary: #FB7185; }
+[data-accent='cyan'] { --color-primary: #22D3EE; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Chakra Petch', 'Segoe UI', system-ui, -apple-system, sans-serif; background-color: #0A182E; color: #E6EDF7; }
 h1, h2, h3, h4, h5, h6 { font-family: 'Orbitron', sans-serif; }

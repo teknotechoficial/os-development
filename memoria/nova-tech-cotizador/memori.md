@@ -620,3 +620,73 @@
 **Gotchas nuevos**: (1) **Read de imagenes sirve media STALE** (mostraba otra captura) -> workaround verificado: convertir PNG->JPG con System.Drawing (qc-*.jpg) y leer el JPG; verificacion programatica por pixeles: tab activa #1877E8 = RGB(24,119,232) en y~175-200, x=367/467/571 (capturas 1366x697); (2) builder puede colgarse >600s (tool timeout mata proceso) y spawn UNKNOWN en wine es transitorio -> reintentar directo en shell con timeout alto SIEMPRE funciona; verificar setup size+timestamp antes de confiar; (3) la app puede volver a #/dashboard sola entre sesiones de probe -> navegar location.hash explicitamente antes de capturar seccion; (4) probe nuevo con checks en orden distinto fallo 1 check -> el orden de asserts importa cuando hay dependencia de tab activa.
 
 **Aprendizaje**: 15 subagentes con contratos fijos (ids/labels literales definidos ANTES del despliegue) permiten recrear un archivo de 1278 lineas sin romper 78 checks de regresion; la verificacion visual por pixeles objetiva (RGB del tab activa) resuelve la dudas de screenshots sin depender de que el tool de lectura de imagenes este en cache.
+
+---
+
+## build25 — 2026-10-03 — 8 pedidos + fix CRÍTICO margen
+
+**Estado: CERRADA (E2E verde, falta solo commit/push de este lote).**
+
+### Hecho
+- **CRÍTICO margen**: ahora es PISO, no suma fija. `src/shared/pricing.ts`:
+  `calculateFinalPrice(base, margin?)` (con margin → `base+round(margin)`, sin →
+  legacy `base + max(250, 15%)` compat b13), `calculateSuggestedMargin`,
+  `isValidMargin`, `MARGIN_MIN_MESSAGE` en constants. Server POST /api/quotes
+  valida `margin<250 → 400`; con `items[]` base=Σ precios BD; sin items → legacy
+  exacta. Columna `quotes.items TEXT DEFAULT '[]'`.
+- **NewQuote recreado (268 líneas)**: servicios de BD (activos, EmptyState),
+  multi-select, `#quote-margin`, submit items[]+margin. QuoteDetail card
+  "Servicios cotizados" + WhatsApp con items.
+- **Troles**: UI `canManageTasks = super_admin||gerente` (form/Eliminar solo ellos,
+  checkbox siempre, aviso literal "Solo el CEO y el Gerente General pueden agregar
+  tareas. Podés marcarlas como realizadas."); server POST/DELETE exigen header
+  `X-User-Role` → 403 con ese mensaje; PUT libre.
+- **Ajustes solo CEO**: ProtectedRoute roles super_admin en /configuracion
+  ("ACCESO RESTRINGIDO"), item AJUSTES con roles, menú Configuración solo super_admin,
+  Settings canManage super_admin.
+- **Perfil**: campos cargo/teléfono/bio (team.ts PUT+GET con title/phone/bio) +
+  paleta 6 acentos (`data-accent` al montar, `--color-primary`, nt_prefs.accent).
+- **Notificaciones programadas**: `server/notifications.ts` notify/notifyRoles +
+  eventos quotes/services; GET /api/notifications, /unread-count, PUT /read-all;
+  AppLayout polling 15s baseline sin beep; `utils/sound.ts` 4 tonos;
+  `#settings-sound-tone` + bloque Mis notificaciones (`#settings-notif-clear`);
+  página Notificaciones marcar-todas (`#notif-mark-all`).
+- **nt_prefs schema**: `{reducedMotion, recentLimit, dateFormat, notifyDesktop,
+  sound, soundTone, accent}` — merge SIEMPRE objeto completo. `nt_mail_test` aparte.
+
+### E2E (verde)
+- `verify-b25` **37/37** (nuevo), `verify-b13` **78/78**,
+  `verify-settings-new` **24/24**, `verify-c/d/b2/v5` exit 0, `verify-b25-server`
+  **26/26**, 0 excepciones/0 console errors. Builder intento 3 (1-2 spawn UNKNOWN);
+  NSIS AppLocker → fallback `robocopy /MIR win-unpacked` (exit=3=OK); seed restaurado
+  (8 quotes estados variados). Capturas b25-* verificadas (roles, multi-servicio, perfil).
+
+### Gotchas nuevos (aprendidos)
+- **psql + hashes scrypt**: en PowerShell NO usar `\$` para el `$` de
+  `scrypt$salt$hash` (inserta backslash literal → verifySecret falla 401). Usar
+  comillas simples de PS: `-c 'UPDATE ... ''scrypt$...$...'' ...'`. Verificar con
+  `length(password_hash)=104` y head `scrypt$`.
+- **Usuarios seed sin credenciales** (`has_credentials=false`): para probar roles,
+  habilitar con UPDATE de hashes (scrypt N=16384, 32 bytes, salt 16 →
+  `scrypt$salthex$hashhex`) y RESTAURAR con `PUT /api/team/:id/reset-credentials`
+  al cerrar. Credenciales prueba usadas: juan@novatech.com / amauir@novatech.com
+  (clave123, PIN 1234) — ya restauradas a false.
+- **Login probe flake**: esperar a que el form exista (polling 500ms×20) antes de
+  toggle/submit + 1 reintento; sin eso el primer login de la corrida falla en `#/`.
+- **Probes de toggles**: no asumir estado inicial (nt_prefs persiste entre corridas);
+  asserts invariantes: `after === !before` y `restaurado === before`.
+- **ProfileModal** se abre con botón **"EDITAR PERFIL"** del bloque MI PERFIL en
+  Ajustes (no desde el menú header); check `via='editar'`.
+- **`Page.captureScreenshot`** puede colgar (timeout 20s) en cargas lentas → retries;
+  la primera corrida b25 tuvo timeouts transitorios por carga.
+- **PowerShell here-string JS**: regex con `/`+`\n` rompe la eval → construir
+  expressions con `String.fromCharCode(10)` o `.split().join(' | ')`, sin regex
+  literales complejas.
+- **Cotizaciones vigentes (0)** con data en estados finales (`pagada`/`rechazada`) es
+  CORRECTO: `QuoteHistory.ACTIVE_STATUSES = ['borrador','enviada','aceptada']` →
+  re-seed con `npm run db:seed` para estados variados.
+- **Atajo/instalación**: NSIS bloqueado por Control de aplicaciones → robocopy
+  `release\win-unpacked` al destino con `/MIR` (exit=3=éxito) + verificar timestamp
+  de `app.asar` > build.
+- Cierre: `DELETE FROM login_attempts` antes/después de cada E2E; cerrar todos los
+  procesos (app Electron + tsx server) y verificar `restantes=0`, `server=down`.

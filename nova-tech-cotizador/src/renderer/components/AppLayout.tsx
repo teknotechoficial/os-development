@@ -20,6 +20,7 @@ import { useAuth } from '../store/auth';
 import { useQuotes } from '../store/quotes';
 import { useTeam } from '../store/team';
 import { apiUrl } from '../api';
+import { playTone } from '@/renderer/utils/sound';
 import PersonModal from './PersonModal';
 import ProfileModal from './ProfileModal';
 import logoUrl from '../../../assets/logo-white.png';
@@ -46,7 +47,12 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Historial', icon: History, path: '/historial' },
 ];
 
-const AJUSTES_ITEM: NavItem = { label: 'Ajustes', icon: Settings, path: '/configuracion' };
+const AJUSTES_ITEM: NavItem = {
+  label: 'Ajustes',
+  icon: Settings,
+  path: '/configuracion',
+  roles: ['super_admin'],
+};
 
 const NAV_EXTRA_ITEMS: NavItem[] = [
   { label: 'Mi Trabajo', icon: Laptop, path: '/mi-trabajo', roles: ['desarrollador'] },
@@ -62,6 +68,13 @@ const ROLE_LABELS: Record<string, string> = {
 
 const BADGE_CLASSES = 'bg-[#E11D48] text-white text-[10px] rounded-full px-1.5 min-w-[18px] text-center';
 
+const POLL_MS = 15000;
+
+const notifKey = (n: any): string => {
+  const value = n && typeof n === 'object' ? n.id ?? n._id : undefined;
+  return value === undefined || value === null ? '' : String(value);
+};
+
 type SearchResult =
   | { type: 'quote'; id: string; title: string; subtitle: string }
   | { type: 'person'; id: string; title: string; subtitle: string };
@@ -76,58 +89,41 @@ const initials = (name: string) =>
     .toUpperCase();
 
 interface LocalPrefs {
-	sound: boolean;
-	notifyDesktop: boolean;
+  sound: boolean;
+  notifyDesktop: boolean;
+  soundTone?: string;
+  accent?: string;
 }
 
-const DEFAULT_PREFS: LocalPrefs = { sound: false, notifyDesktop: false };
-
-const readPrefs = (): LocalPrefs => {
-	try {
-		const raw = window.localStorage.getItem('nt_prefs');
-		if (!raw) return { ...DEFAULT_PREFS };
-		const parsed = JSON.parse(raw);
-		if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PREFS };
-		return {
-			sound: typeof parsed.sound === 'boolean' ? parsed.sound : DEFAULT_PREFS.sound,
-			notifyDesktop:
-				typeof parsed.notifyDesktop === 'boolean'
-					? parsed.notifyDesktop
-					: DEFAULT_PREFS.notifyDesktop,
-		};
-	} catch {
-		return { ...DEFAULT_PREFS };
-	}
+const DEFAULT_PREFS: LocalPrefs = {
+  sound: false,
+  notifyDesktop: false,
+  soundTone: 'classic',
+  accent: 'blue',
 };
 
-let audioContext: AudioContext | null = null;
-
-const playBeep = () => {
-	try {
-		if (!audioContext) {
-			audioContext = new AudioContext();
-		}
-		const context = audioContext;
-		if (context.state === 'suspended') {
-			context.resume().catch(() => undefined);
-		}
-		const oscillator = context.createOscillator();
-		const gain = context.createGain();
-		oscillator.type = 'sine';
-		oscillator.frequency.value = 880;
-		gain.gain.value = 0.05;
-		oscillator.connect(gain);
-		gain.connect(context.destination);
-		oscillator.onended = () => {
-			oscillator.disconnect();
-			gain.disconnect();
-		};
-		const startedAt = context.currentTime;
-		oscillator.start(startedAt);
-		oscillator.stop(startedAt + 0.15);
-	} catch {
-		return;
-	}
+const readPrefs = (): LocalPrefs => {
+  try {
+    const raw = window.localStorage.getItem('nt_prefs');
+    if (!raw) return { ...DEFAULT_PREFS };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_PREFS };
+    return {
+      sound: typeof parsed.sound === 'boolean' ? parsed.sound : DEFAULT_PREFS.sound,
+      notifyDesktop:
+        typeof parsed.notifyDesktop === 'boolean'
+          ? parsed.notifyDesktop
+          : DEFAULT_PREFS.notifyDesktop,
+      soundTone:
+        typeof parsed.soundTone === 'string' && parsed.soundTone
+          ? parsed.soundTone
+          : DEFAULT_PREFS.soundTone,
+      accent:
+        typeof parsed.accent === 'string' && parsed.accent ? parsed.accent : DEFAULT_PREFS.accent,
+    };
+  } catch {
+    return { ...DEFAULT_PREFS };
+  }
 };
 
 const AppLayout: React.FC = () => {
@@ -135,7 +131,9 @@ const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [unread, setUnread] = React.useState(0);
-	const lastUnreadRef = React.useRef(0);
+  const knownIdsRef = React.useRef<Set<string>>(new Set());
+  const inFlightRef = React.useRef(false);
+  const baselineDoneRef = React.useRef(false);
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const searchRef = React.useRef<HTMLDivElement>(null);
@@ -153,44 +151,76 @@ const AppLayout: React.FC = () => {
     if (users.length === 0) void fetchTeam();
   }, [users.length, fetchTeam]);
 
+  const poll = React.useCallback(async () => {
+    if (!userId || inFlightRef.current || document.hidden) return;
+    inFlightRef.current = true;
+    try {
+      const res = await fetch(apiUrl('/api/notifications?userId=' + userId));
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      const pending = data.filter((n: any) => n && n.read === false);
+      setUnread(pending.length);
+      if (knownIdsRef.current.size === 0 && !baselineDoneRef.current) {
+        data.forEach((n: any) => knownIdsRef.current.add(notifKey(n)));
+        baselineDoneRef.current = true;
+        return;
+      }
+      const fresh = pending.filter((n: any) => !knownIdsRef.current.has(notifKey(n)));
+      if (fresh.length === 0) return;
+      const prefs = readPrefs();
+      if (prefs.sound) {
+        playTone(prefs.soundTone || 'classic');
+      }
+      if (
+        prefs.notifyDesktop &&
+        typeof Notification !== 'undefined' &&
+        Notification.permission === 'granted'
+      ) {
+        const newest = fresh[0];
+        try {
+          new Notification((newest && newest.title) || 'TeknoTech Services', {
+            body: (newest && newest.message) || 'Tenés una notificación nueva',
+          });
+        } catch {
+          /* constructor de Notification no disponible */
+        }
+      }
+      fresh.forEach((n: any) => knownIdsRef.current.add(notifKey(n)));
+    } catch {
+      /* fetch fallido: se reintenta en el próximo ciclo */
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [userId]);
+
   React.useEffect(() => {
     if (!userId) return;
-    let cancelled = false;
-    fetch(apiUrl('/api/notifications?userId=' + userId))
-      .then((res) => res.json())
-      .then((data) => {
-			if (cancelled || !Array.isArray(data)) return;
-			const count = data.filter(
-				(n: any) => n && (n.read === false || n.isRead === false)
-			).length;
-			const isNew = count > lastUnreadRef.current;
-			lastUnreadRef.current = count;
-			setUnread(count);
-			if (!isNew) return;
-			const prefs = readPrefs();
-			if (prefs.sound) {
-				playBeep();
-			}
-			if (
-				prefs.notifyDesktop &&
-				typeof Notification !== 'undefined' &&
-				Notification.permission === 'granted'
-			) {
-				const newest = data.find((n: any) => n && (n.read === false || n.isRead === false));
-				const title = (newest && newest.title) || 'TeknoTech Services';
-				const body = (newest && newest.message) || 'Tenés una notificación nueva';
-				try {
-					new Notification(title, { body });
-				} catch {
-					return;
-				}
-			}
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
+    knownIdsRef.current = new Set();
+    baselineDoneRef.current = false;
+    inFlightRef.current = false;
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, POLL_MS);
+    const onVisibilityChange = () => {
+      if (!document.hidden) void poll();
     };
-  }, [userId]);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      inFlightRef.current = false;
+    };
+  }, [userId, poll]);
+
+  React.useEffect(() => {
+    if (location.pathname === '/notificaciones') void poll();
+  }, [location.pathname, poll]);
+
+  React.useEffect(() => {
+    const prefs = readPrefs();
+    document.documentElement.dataset.accent = prefs.accent || 'blue';
+  });
 
   React.useEffect(() => {
     if (!open && !profileOpen) return;
@@ -288,7 +318,7 @@ const AppLayout: React.FC = () => {
         className={({ isActive }) =>
           `flex items-center gap-4 px-5 py-3.5 mx-3 mb-1.5 text-[13px] uppercase tracking-[0.12em] font-semibold rounded-2xl transition-all duration-150 active:scale-[0.98] ${
             isActive
-              ? 'bg-[#1877E8] text-white shadow-lg shadow-blue-900/40'
+              ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-blue-900/40'
               : 'text-[#8FA6C4] hover:text-white hover:bg-[#10233E] hover:translate-x-0.5'
           }`
         }
@@ -321,7 +351,7 @@ const AppLayout: React.FC = () => {
         <nav className="flex-1 py-4 overflow-y-auto">
           {visibleItems.map(renderNavItem)}
           {visibleExtraItems.map(renderNavItem)}
-          {renderNavItem(AJUSTES_ITEM)}
+          {canSee(AJUSTES_ITEM) ? renderNavItem(AJUSTES_ITEM) : null}
         </nav>
 
         <div className="border-t border-[#16294A] px-4 py-4">
@@ -444,17 +474,19 @@ const AppLayout: React.FC = () => {
                     <UserCog size={16} className="text-[#60A5FA]" />
                     Mi perfil
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      navigate('/configuracion');
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#D6E2F2] hover:bg-[#14294A] hover:text-white transition-colors"
-                  >
-                    <Settings size={16} className="text-[#60A5FA]" />
-                    Configuración
-                  </button>
+                  {user?.role === 'super_admin' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate('/configuracion');
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#D6E2F2] hover:bg-[#14294A] hover:text-white transition-colors"
+                    >
+                      <Settings size={16} className="text-[#60A5FA]" />
+                      Configuración
+                    </button>
+                  ) : null}
                   <div className="border-t border-[#16294A]" />
                   <button
                     type="button"

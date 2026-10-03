@@ -20,7 +20,8 @@ export async function initDatabase(): Promise<void> {
       id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
       code TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, avatar TEXT,
       role TEXT NOT NULL CHECK (role IN ('super_admin','gerente','vendedor','closer','desarrollador')),
-      is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      title TEXT DEFAULT '', phone TEXT DEFAULT '', bio TEXT DEFAULT ''
     )`,
     `CREATE TABLE IF NOT EXISTS quotes (
       id TEXT PRIMARY KEY, client_name TEXT NOT NULL, client_type TEXT NOT NULL,
@@ -28,7 +29,7 @@ export async function initDatabase(): Promise<void> {
       margin REAL DEFAULT 250.0, final_price REAL NOT NULL,
       status TEXT DEFAULT 'borrador', seller_id TEXT NOT NULL, developer_id TEXT,
       assigned_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, items TEXT DEFAULT '[]'
     )`,
     `CREATE TABLE IF NOT EXISTS availability (
       developer_id TEXT PRIMARY KEY REFERENCES users(id), status TEXT DEFAULT 'disponible',
@@ -40,6 +41,8 @@ export async function initDatabase(): Promise<void> {
       quote_id TEXT REFERENCES quotes(id), read BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications (user_id) WHERE read = false`,
     `CREATE TABLE IF NOT EXISTS settings (
       id TEXT PRIMARY KEY DEFAULT 'app', company_name TEXT DEFAULT 'TeknoTech Services',
       payment_alias TEXT DEFAULT 'belo.arg.usd', margin_minimum REAL DEFAULT 250.0,
@@ -49,6 +52,10 @@ export async function initDatabase(): Promise<void> {
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''`,
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''`,
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS company_logo TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT DEFAULT ''`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT ''`,
+    `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS items TEXT DEFAULT '[]'`,
   ];
   for (const query of queries) {
     await db.query(query);
