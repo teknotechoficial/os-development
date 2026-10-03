@@ -794,3 +794,58 @@
   ambos UP antes de seguir.
 - Cierre estándar ACTUALIZADO: DELETE login_attempts (v5 deja 6 intentos de lockout)
   + kill procesos (app+server) + restantes=0 + **credenciales roles ON**.
+
+---
+
+## build28 (2026-10-03) - Ajustes control TOTAL (tema, logo, sidebar, tagline)
+
+### Agregado build28
+- **Tema visual** (settings.theme: dark|midnight|steel|ocean, def dark): bloques
+  `[data-theme=...]` en globals.css con overrides `!important` de clases Tailwind
+  escapadas (`.bg-\[\#0A182E\]` + variantes, `.bg-\[\#081426\]`, `.bg-\[\#10233E\]`,
+  `.bg-\[\#0C1E36\]`, bordes, body). AppLayout lee /public y setea `dataset.theme` al
+  cargar; Settings `selectTheme()` = preview instantaneo; PUT invalido -> 400.
+- **Logo app** (settings.companyLogo): sidebar + Login usan `companyLogo || logo-white`;
+  Login trunca dataUrl a 300 kB.
+- **Sidebar ordenable/oculto** (settings.sidebar_order, settings.sidebar_hidden): lista
+  Ajustes>Sistema, botones Subir/Bajar (swap) y Mostrar/ocultar (aria-pressed + opacity-60 +
+  line-through); AppLayout unificado ordena por array (Inicio FIJO primero) y filtra ocultos;
+  PUT path desconocido -> 400. NAV_PATHS: dashboard/reportes/cotizaciones/nueva-cotizacion/
+  servicios/equipo/historial/configuracion/mi-trabajo.
+- **Tagline login** (settings.login_tagline, separador `|` = linea, max 200): textarea en
+  Ajustes>Sistema; Login renderiza `<p>` por linea (`taglineLines`).
+- Migraciones x3 (schema.ts, server/db.ts, src/main/database.ts): theme, sidebar_order,
+  sidebar_hidden, login_tagline. GET /public expone los 4 campos nuevos.
+
+### Fixed build28 (BUG REAL del producto)
+- **Login usaba `fetch('/api/settings/public')` RELATIVO** -> falla bajo `file:` (app
+  instalada): branding custom solo desde cache `nt_pub_settings` y NO se refrescaba al
+  restaurar defaults (probe 4.2 rojo). Fix: `apiUrl()` (import `@/renderer/api`) como el
+  resto del renderer. **Regla: NUNCA fetch relative en renderer - siempre apiUrl().**
+
+### E2E build28 (238/238 + 4 exit0)
+- b28 **26/26** - b27 37/37 - b13 78/78 - b25 40/40 - settings-new 24/24 -
+  b25-server 33/33 - c/d/b2/v5 exit 0. tsc 0/0, vite BUILD=0, NSIS exit 0,
+  ASAR 40,866,234 @ 18:34, 0 excepciones/0 console errors.
+
+### Gotchas build28 (IMPORTANTES)
+- **Probe timing**: NUNCA leer el DOM en el MISMO `evaluate` despues de `.click()`
+  (React re-render asincrono) -> `await wait(500)` entre click y lectura (falso rojo 2.4/2.5).
+- **
+pm run build NO reempaqueta el asar** - despues de cambios hay que correr
+  `npx electron-builder --win nsis` (timeout 960000) y LUEGO robocopy /MIR; verificar
+  `asar dest size/timestamp` para confirmar que cambio (si robocopy exit=0, no copio nada).
+- **CDP intermitente**: al lanzar la app recien, `Runtime.enable` puede hacer timeout ->
+  `Start-Sleep 8` y reintentar el probe (no es fallo del producto).
+- **NSIS/AppLocker**: bloquea el setup.exe -> fallback `robocopy release\win-unpacked
+  <dest> /MIR` (exit 3 = ok, exit 1 = ok con copias).
+- **2.8 espera post-swap**: tras UI reordenar, el server guarda el array DEL SWAP (no el
+  ORDER_TEST original) - el check debe esperar `[dashboard, servicios, ...]`.
+- Sidebar: Inicio (/dashboard) va SIEMPRE primero (fijo) despues del reorder - checks de
+  `links[0]` deben esperar 'Inicio' y `links[1]` el primer item del order.
+- Probe b28 login CEO = modo CODIGO (`#login-code` + `#login-pin`), NO password.
+- PostgreSQL: si backends mueren/SSL reset -> reiniciar PC (sin admin no se puede
+  `Restart-Service`; UAC denegado por politica; Device Guard bloquea postgres.exe fuera
+  del servicio - cluster temporal en 5433 inutil con 0xC0000142).
+- **Credenciales roles ON** (convencion build27): GTE001/VEN001 `clave123`/pin `1234`.
+- Cierre: DELETE login_attempts + kill procesos + restantes=0 + server DOWN.

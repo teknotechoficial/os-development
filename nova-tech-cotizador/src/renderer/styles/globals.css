@@ -254,3 +254,33 @@ aside nav a[aria-current='page']::before {
 .scroll-thin::-webkit-scrollbar-thumb { background: rgba(24, 119, 232, 0.35); border-radius: 999px; }
 .scroll-thin::-webkit-scrollbar-thumb:hover { background: rgba(24, 119, 232, 0.7); }
 .scroll-thin::-webkit-scrollbar-corner { background: transparent; }
+
+/* ===== App themes (settings.theme -> documentElement data-theme) =====
+   dark = default palette (no overrides). Each theme rewrites the six base
+   layer colors used across the UI via escaped Tailwind arbitrary classes. */
+[data-theme='midnight'] { color-scheme: dark; }
+[data-theme='midnight'] body { background-color: #030A18; }
+[data-theme='midnight'] .bg-\[\#0A182E\], [data-theme='midnight'] .bg-\[\#0A182E\]\/95 { background-color: #030A18 !important; }
+[data-theme='midnight'] .bg-\[\#081426\] { background-color: #01060F !important; }
+[data-theme='midnight'] .bg-\[\#10233E\], [data-theme='midnight'] .bg-\[\#10233E\]\/70, [data-theme='midnight'] .bg-\[\#10233E\]\/80 { background-color: #0A1A30 !important; }
+[data-theme='midnight'] .bg-\[\#0C1E36\], [data-theme='midnight'] .bg-\[\#0C1E36\]\/60 { background-color: #061527 !important; }
+[data-theme='midnight'] .border-\[\#16294A\], [data-theme='midnight'] .border-\[\#16294A\]\/60, [data-theme='midnight'] .border-\[\#16294A\]\/70 { border-color: #0D1D38 !important; }
+[data-theme='midnight'] .border-\[\#1C3557\] { border-color: #132A48 !important; }
+
+[data-theme='steel'] { color-scheme: dark; }
+[data-theme='steel'] body { background-color: #141A24; }
+[data-theme='steel'] .bg-\[\#0A182E\], [data-theme='steel'] .bg-\[\#0A182E\]\/95 { background-color: #141A24 !important; }
+[data-theme='steel'] .bg-\[\#081426\] { background-color: #0E131B !important; }
+[data-theme='steel'] .bg-\[\#10233E\], [data-theme='steel'] .bg-\[\#10233E\]\/70, [data-theme='steel'] .bg-\[\#10233E\]\/80 { background-color: #1C2431 !important; }
+[data-theme='steel'] .bg-\[\#0C1E36\], [data-theme='steel'] .bg-\[\#0C1E36\]\/60 { background-color: #171E29 !important; }
+[data-theme='steel'] .border-\[\#16294A\], [data-theme='steel'] .border-\[\#16294A\]\/60, [data-theme='steel'] .border-\[\#16294A\]\/70 { border-color: #2A3444 !important; }
+[data-theme='steel'] .border-\[\#1C3557\] { border-color: #39465A !important; }
+
+[data-theme='ocean'] { color-scheme: dark; }
+[data-theme='ocean'] body { background-color: #062040; }
+[data-theme='ocean'] .bg-\[\#0A182E\], [data-theme='ocean'] .bg-\[\#0A182E\]\/95 { background-color: #062040 !important; }
+[data-theme='ocean'] .bg-\[\#081426\] { background-color: #041832 !important; }
+[data-theme='ocean'] .bg-\[\#10233E\], [data-theme='ocean'] .bg-\[\#10233E\]\/70, [data-theme='ocean'] .bg-\[\#10233E\]\/80 { background-color: #0C2E56 !important; }
+[data-theme='ocean'] .bg-\[\#0C1E36\], [data-theme='ocean'] .bg-\[\#0C1E36\]\/60 { background-color: #082648 !important; }
+[data-theme='ocean'] .border-\[\#16294A\], [data-theme='ocean'] .border-\[\#16294A\]\/60, [data-theme='ocean'] .border-\[\#16294A\]\/70 { border-color: #123A66 !important; }
+[data-theme='ocean'] .border-\[\#1C3557\] { border-color: #1A4A80 !important; }

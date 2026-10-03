@@ -68,12 +68,24 @@ const ROLE_LABELS: Record<string, string> = {
 
 const BADGE_CLASSES = 'bg-[#E11D48] text-white text-[10px] rounded-full px-1.5 min-w-[18px] text-center';
 
-type AppSettings = { companyName: string; currency: string; notifInterval: number };
+type AppSettings = {
+  companyName: string;
+  currency: string;
+  notifInterval: number;
+  companyLogo: string;
+  theme: string;
+  sidebarOrder: string[];
+  sidebarHidden: string[];
+};
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
   companyName: 'TeknoTech Services',
   currency: 'USD',
   notifInterval: 15,
+  companyLogo: '',
+  theme: 'dark',
+  sidebarOrder: [],
+  sidebarHidden: [],
 };
 
 const notifKey = (n: any): string => {
@@ -171,7 +183,20 @@ const AppLayout: React.FC = () => {
           Number.isFinite(rawInterval) && rawInterval >= 5
             ? Math.round(rawInterval)
             : DEFAULT_APP_SETTINGS.notifInterval;
-        setAppSettings({ companyName, currency, notifInterval });
+        const companyLogo =
+          typeof data.companyLogo === 'string' && data.companyLogo
+            ? data.companyLogo.slice(0, 300000)
+            : '';
+        const theme =
+          typeof data.theme === 'string' && data.theme ? data.theme : DEFAULT_APP_SETTINGS.theme;
+        const sidebarOrder = Array.isArray(data.sidebarOrder)
+          ? data.sidebarOrder.filter((x: unknown): x is string => typeof x === 'string')
+          : [];
+        const sidebarHidden = Array.isArray(data.sidebarHidden)
+          ? data.sidebarHidden.filter((x: unknown): x is string => typeof x === 'string')
+          : [];
+        document.documentElement.dataset.theme = theme;
+        setAppSettings({ companyName, currency, notifInterval, companyLogo, theme, sidebarOrder, sidebarHidden });
         try {
           const raw = window.localStorage.getItem('nt_prefs');
           const parsed = raw ? JSON.parse(raw) : null;
@@ -353,8 +378,18 @@ const AppLayout: React.FC = () => {
   };
 
   const canSee = (item: NavItem) => !item.roles || (user && item.roles.includes(user.role));
-  const visibleItems = NAV_ITEMS.filter(canSee);
-  const visibleExtraItems = NAV_EXTRA_ITEMS.filter(canSee);
+  const navPool: NavItem[] = [...NAV_ITEMS, ...NAV_EXTRA_ITEMS, AJUSTES_ITEM];
+  const hiddenSet = new Set(appSettings.sidebarHidden);
+  let orderedItems: NavItem[] = navPool;
+  if (appSettings.sidebarOrder.length > 0) {
+    const rank = new Map(appSettings.sidebarOrder.map((p, i) => [p, i]));
+    orderedItems = [...navPool].sort((a, b) => {
+      const ra = rank.has(a.path) ? rank.get(a.path)! : appSettings.sidebarOrder.length + navPool.indexOf(a);
+      const rb = rank.has(b.path) ? rank.get(b.path)! : appSettings.sidebarOrder.length + navPool.indexOf(b);
+      return ra - rb;
+    });
+  }
+  const visibleItems = orderedItems.filter((item) => canSee(item) && !hiddenSet.has(item.path));
 
   const me = user ? users.find((u) => u.id === user.id) : undefined;
 
@@ -390,7 +425,7 @@ const AppLayout: React.FC = () => {
         <div className="px-6 py-6 flex items-center gap-3.5 border-b border-[#16294A]/70">
           <div className="w-14 h-14 rounded-2xl bg-[#10233E] border border-[#1877E8]/30 p-1.5 flex items-center justify-center shrink-0 shadow-[0_6px_20px_rgba(0,0,0,0.4)]">
             <img
-              src={logoUrl}
+              src={appSettings.companyLogo || logoUrl}
               alt={appSettings.companyName}
               className="w-full h-full object-contain"
             />
@@ -407,8 +442,6 @@ const AppLayout: React.FC = () => {
 
         <nav className="flex-1 py-4 overflow-y-auto">
           {visibleItems.map(renderNavItem)}
-          {visibleExtraItems.map(renderNavItem)}
-          {canSee(AJUSTES_ITEM) ? renderNavItem(AJUSTES_ITEM) : null}
         </nav>
 
         <div className="border-t border-[#16294A] px-4 py-4">

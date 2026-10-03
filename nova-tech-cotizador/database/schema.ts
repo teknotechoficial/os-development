@@ -88,6 +88,10 @@ export async function initDatabase(): Promise<void> {
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS login_lockout_minutes INTEGER DEFAULT 15`,
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS team_default_role TEXT DEFAULT 'vendedor'`,
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS team_default_title TEXT DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dark'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_order TEXT DEFAULT '[]'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_hidden TEXT DEFAULT '[]'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS login_tagline TEXT DEFAULT 'Tecnología que impulsa,|lealtad que permanece.'`,
   ];
 
   for (const query of queries) {

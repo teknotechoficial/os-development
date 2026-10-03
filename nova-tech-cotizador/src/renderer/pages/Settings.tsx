@@ -1,14 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	AlertCircle,
+	ArrowDown,
+	ArrowUp,
 	Bell,
 	Building2,
 	Check,
+	Eye,
+	EyeOff,
 	KeyRound,
 	Mail,
+	Palette,
+	PanelLeft,
 	Server,
 	Sliders,
 	Trash2,
+	Type,
 	Upload,
 	User,
 	UserCog,
@@ -58,6 +65,10 @@ interface SettingsData {
 	loginLockoutMinutes: number;
 	teamDefaultRole: string;
 	teamDefaultTitle: string;
+	theme: string;
+	sidebarOrder: string[];
+	sidebarHidden: string[];
+	loginTagline: string;
 }
 
 const DEFAULT_SETTINGS: SettingsData = {
@@ -80,7 +91,30 @@ const DEFAULT_SETTINGS: SettingsData = {
 	loginLockoutMinutes: 15,
 	teamDefaultRole: 'vendedor',
 	teamDefaultTitle: '',
+	theme: 'dark',
+	sidebarOrder: [],
+	sidebarHidden: [],
+	loginTagline: 'Tecnología que impulsa,|lealtad que permanece.',
 };
+
+const THEME_OPTIONS = [
+	{ value: 'dark', label: 'Oscuro (original)', swatch: ['#0A182E', '#10233E', '#1877E8'] },
+	{ value: 'midnight', label: 'Medianoche', swatch: ['#030A18', '#0A1A30', '#1877E8'] },
+	{ value: 'steel', label: 'Acero', swatch: ['#141A24', '#1C2431', '#60A5FA'] },
+	{ value: 'ocean', label: 'Océano', swatch: ['#062040', '#0C2E56', '#38BDF8'] },
+];
+
+const NAV_LABELS: { path: string; label: string }[] = [
+	{ path: '/dashboard', label: 'Inicio' },
+	{ path: '/reportes', label: 'Reportes' },
+	{ path: '/cotizaciones', label: 'Cotizaciones' },
+	{ path: '/nueva-cotizacion', label: 'Nueva Cotización' },
+	{ path: '/servicios', label: 'Servicios' },
+	{ path: '/equipo', label: 'Equipo' },
+	{ path: '/historial', label: 'Historial' },
+	{ path: '/mi-trabajo', label: 'Mi Trabajo' },
+	{ path: '/configuracion', label: 'Ajustes' },
+];
 
 const CURRENCY_OPTIONS = [
 	{ value: 'USD', label: 'USD — Dólar ($)' },
@@ -282,6 +316,15 @@ const mergeSettings = (prev: SettingsData, data: Record<string, any>): SettingsD
 			: prev.teamDefaultRole,
 	teamDefaultTitle:
 		typeof data.teamDefaultTitle === 'string' ? data.teamDefaultTitle : prev.teamDefaultTitle,
+	theme: typeof data.theme === 'string' && data.theme ? data.theme : prev.theme,
+	sidebarOrder: Array.isArray(data.sidebarOrder)
+		? data.sidebarOrder.filter((x: unknown): x is string => typeof x === 'string')
+		: prev.sidebarOrder,
+	sidebarHidden: Array.isArray(data.sidebarHidden)
+		? data.sidebarHidden.filter((x: unknown): x is string => typeof x === 'string')
+		: prev.sidebarHidden,
+	loginTagline:
+		typeof data.loginTagline === 'string' ? data.loginTagline : prev.loginTagline,
 });
 
 interface FieldProps {
@@ -568,6 +611,24 @@ const Settings: React.FC = () => {
 			} catch {
 				/* sin Electron: título nativo sin actualizar */
 			}
+			/* apply theme right away and refresh the cached public login branding */
+			try {
+				document.documentElement.dataset.theme = settings.theme;
+			} catch {
+				/* sin document */
+			}
+			try {
+				window.localStorage.setItem(
+					'nt_pub_settings',
+					JSON.stringify({
+						logo: settings.companyLogo,
+						name: settings.companyName,
+						tagline: settings.loginTagline,
+					}),
+				);
+			} catch {
+				/* localStorage no disponible */
+			}
 			setBanner({ type: 'success', message: 'Configuración guardada' });
 			window.setTimeout(() => setBanner(null), 3000);
 		} catch (error) {
@@ -684,7 +745,42 @@ const Settings: React.FC = () => {
 	const setField = (key: keyof SettingsData, value: string) =>
 		setSettings((prev) => ({ ...prev, [key]: value }) as SettingsData);
 
+	const setAnyField = (key: keyof SettingsData, value: unknown) =>
+		setSettings((prev) => ({ ...prev, [key]: value }) as SettingsData);
+
 	const updateField = (key: keyof SettingsData) => (value: string) => setField(key, value);
+
+	const navOrderList = (() => {
+		const base = NAV_LABELS.map((item) => item.path);
+		const current = settings.sidebarOrder.filter((path) => base.includes(path));
+		const rest = base.filter((path) => !current.includes(path));
+		return [...current, ...rest];
+	})();
+
+	const moveNav = (path: string, dir: -1 | 1) => {
+		const list = [...navOrderList];
+		const index = list.indexOf(path);
+		const target = index + dir;
+		if (index < 0 || target < 0 || target >= list.length) return;
+		[list[index], list[target]] = [list[target], list[index]];
+		setAnyField('sidebarOrder', list);
+	};
+
+	const toggleNavHidden = (path: string) => {
+		const next = new Set(settings.sidebarHidden);
+		if (next.has(path)) next.delete(path);
+		else next.add(path);
+		setAnyField('sidebarHidden', Array.from(next));
+	};
+
+	const selectTheme = (value: string) => {
+		setField('theme', value);
+		try {
+			document.documentElement.dataset.theme = value;
+		} catch {
+			/* sin document */
+		}
+	};
 
 	const handleMargin = (value: string) =>
 		setSettings((prev) => {
@@ -1733,6 +1829,162 @@ const Settings: React.FC = () => {
 										</select>
 									</div>
 								</div>
+							</Card>
+
+							<Card className={`p-6 ${CARD_CLASS}`}>
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<Palette className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Apariencia</h2>
+										<p className="text-xs text-[#5B7295]">
+											Tema visual de toda la aplicación
+										</p>
+									</div>
+								</div>
+								<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+									{THEME_OPTIONS.map((option) => (
+										<button
+											key={option.value}
+											type="button"
+											id={`settings-theme-${option.value}`}
+											aria-pressed={settings.theme === option.value}
+											onClick={() => selectTheme(option.value)}
+											className={`rounded-xl border p-3 text-left transition-all ${
+												settings.theme === option.value
+													? 'border-[#1877E8] bg-[#1877E8]/10 ring-2 ring-[#1877E8]/40'
+													: 'border-[#1C3557] bg-[#0C1E36] hover:border-[#1877E8]/60'
+											}`}
+										>
+											<span className="flex gap-1.5 mb-2">
+												{option.swatch.map((color) => (
+													<span
+														key={color}
+														className="w-4 h-4 rounded-md border border-white/15"
+														style={{ backgroundColor: color }}
+													/>
+												))}
+											</span>
+											<span className="text-xs text-white font-semibold block">
+												{option.label}
+											</span>
+											<span className="text-[10px] text-[#5B7295] uppercase tracking-[0.1em]">
+												{option.value}
+											</span>
+										</button>
+									))}
+								</div>
+								<p className="text-xs text-[#5B7295] mt-3">
+									Se aplica al instante y queda guardado para todos los usuarios.
+								</p>
+							</Card>
+
+							<Card className={`p-6 ${CARD_CLASS}`}>
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<PanelLeft className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Sidebar y navegación</h2>
+										<p className="text-xs text-[#5B7295]">
+											Orden y visibilidad de los menús, sin tocar código
+										</p>
+									</div>
+								</div>
+								<ul className="space-y-1.5" id="settings-sidebar-list">
+									{navOrderList.map((path, index) => {
+										const meta = NAV_LABELS.find((item) => item.path === path);
+										if (!meta) return null;
+										const hidden = settings.sidebarHidden.includes(path);
+										return (
+											<li
+												key={path}
+												data-path={path}
+												className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+													hidden
+														? 'border-[#1C3557] bg-[#0C1E36]/60 opacity-60'
+														: 'border-[#1C3557] bg-[#0C1E36]'
+												}`}
+											>
+												<span className="text-[10px] text-[#5B7295] w-5 text-center">
+													{index + 1}
+												</span>
+												<span
+													className={`flex-1 text-sm ${
+														hidden ? 'text-[#5B7295] line-through' : 'text-white'
+													}`}
+												>
+													{meta.label}
+												</span>
+												<button
+													type="button"
+													aria-label={`Subir ${meta.label}`}
+													disabled={index === 0}
+													onClick={() => moveNav(path, -1)}
+													className="p-1.5 rounded-lg text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+												>
+													<ArrowUp className="w-3.5 h-3.5" />
+												</button>
+												<button
+													type="button"
+													aria-label={`Bajar ${meta.label}`}
+													disabled={index === navOrderList.length - 1}
+													onClick={() => moveNav(path, 1)}
+													className="p-1.5 rounded-lg text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+												>
+													<ArrowDown className="w-3.5 h-3.5" />
+												</button>
+												<button
+													type="button"
+													id={`settings-nav-${path.replace(/\//g, '_')}`}
+													aria-pressed={!hidden}
+													aria-label={`Mostrar u ocultar ${meta.label}`}
+													onClick={() => toggleNavHidden(path)}
+													className={`p-1.5 rounded-lg transition-colors ${
+														hidden
+															? 'text-[#E11D48] hover:bg-[#E11D48]/15'
+															: 'text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15'
+													}`}
+												>
+													{hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+												</button>
+											</li>
+										);
+									})}
+								</ul>
+								<p className="text-xs text-[#5B7295] mt-3">
+									El orden aplica para todos los perfiles; los elementos ocultos dejan de
+									mostrarse hasta que los vuelvas a activar.
+								</p>
+							</Card>
+
+							<Card className={`p-6 ${CARD_CLASS}`}>
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<Type className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Pantalla de acceso</h2>
+										<p className="text-xs text-[#5B7295]">
+											Texto de portada del login (líneas separadas con |)
+										</p>
+									</div>
+								</div>
+								<label htmlFor="settings-login-tagline" className={LABEL_CLASS}>
+									Frase del login
+								</label>
+								<textarea
+									id="settings-login-tagline"
+									rows={2}
+									maxLength={200}
+									value={settings.loginTagline}
+									onChange={(e) => setField('loginTagline', e.target.value)}
+									className={INPUT_CLASS}
+								/>
+								<p className="text-xs text-[#5B7295] mt-2">
+									Vista previa: {settings.loginTagline.split('|').map((l) => l.trim()).filter(Boolean).join(' · ') || '—'}
+								</p>
 							</Card>
 
 							<Card className={`p-6 ${CARD_CLASS}`}>

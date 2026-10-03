@@ -38,6 +38,59 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build28] - 2026-10-03
+
+### Added
+- **Ajustes con control TOTAL de la apariencia** (sin tocar código):
+  - **Tema visual configurable** (`settings.theme`: `dark` default,
+    `midnight`, `steel`, `ocean`): bloques `[data-theme=...]` en
+    `globals.css` con overrides de clases Tailwind (`!important`),
+    `data-theme` en `<html>` aplicado al cargar (`AppLayout` lee
+    `/api/settings/public`), preview instantáneo al hacer clic
+    (`selectTheme`) y validación PUT → 400 "Tema no válido".
+  - **Logo de la app configurable** (`settings.companyLogo`): sidebar y
+    pantalla de acceso usan el logo custom (`companyLogo || logo-white`);
+    `Login` trunca el dataUrl a 300 kB.
+  - **Sidebar ordenable y ocultable** (`settings.sidebar_order`,
+    `settings.sidebar_hidden`): lista en Ajustes → Sistema con botones
+    Subir/Bajar (intercambio de posiciones) y Mostrar/ocultar
+    (`aria-pressed` + `opacity-60` + `line-through`); el sidebar
+    unificado de `AppLayout` ordena por el array (Inicio fijo primero) y
+    filtra los ocultos por perfil; PUT valida paths desconocidos → 400.
+  - **Tagline de la pantalla de acceso configurable**
+    (`settings.login_tagline`, separador `|` = salto de línea, máx. 200
+    chars): editable en Ajustes → Sistema y renderizado como un `<p>` por
+    línea en `Login`.
+  - Migraciones ×3 (`database/schema.ts`, `server/db.ts`,
+    `src/main/database.ts`): columnas `theme`, `sidebar_order`,
+    `sidebar_hidden`, `login_tagline` en `settings`.
+  - `GET /api/settings/public` ahora expone los campos nuevos
+    (theme/sidebarOrder/sidebarHidden/loginTagline) sin secretos.
+
+### Fixed
+- `Login` usaba `fetch('/api/settings/public')` relativo, que falla cuando
+  el renderer corre desde `file://` (app instalada): el branding custom
+  (logo/nombre/tagline) solo se reflejaba desde la cache local
+  `nt_pub_settings` y no se actualizaba al restaurar defaults. Ahora usa
+  `apiUrl()` como todo el resto del renderer (`http://localhost:3001`
+  bajo `file:`).
+
+### E2E
+- Suite completa tras build (NSIS exit 0, ASAR 40,866,234 @ 18:34,
+  tsc 0/0, vite BUILD=0): **238/238 checks verdes** — `verify-b28`
+  **26/26** (nuevo: validaciones PUT 400 ×4, /public sin secretos, 4
+  temas + preview, reordenar/ocultar sidebar, tagline, guardar +
+  persistencia post-swap, sidebar real tras reload, login custom,
+  restauración total, 0 excepciones), `verify-b27` **37/37**,
+  `verify-b13` **78/78**, `verify-b25` **40/40**,
+  `verify-settings-new` **24/24**, `verify-b25-server` **33/33**,
+  `verify-c/d/b2/v5` exit 0.
+- Incidentes de infra resueltos: PostgreSQL local degradado tras un
+  reinicio de equipo (service auto-recovered), NSIS bloqueado por
+  AppLocker → fallback `robocopy` a `win-unpacked`.
+- Capturas: `b28-sidebar-orden.png`, `b28-login-custom.png`,
+  `b28-restaurado.png`.
+
 ## [1.0.0-build27] - 2026-10-03
 
 ### Added

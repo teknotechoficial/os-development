@@ -6,6 +6,18 @@ const router = Router();
 
 const CURRENCY_CODES = ['USD', 'EUR', 'ARS', 'GBP'];
 const DEFAULT_TEAM_ROLES = ['gerente', 'vendedor', 'closer', 'desarrollador'];
+const THEME_CODES = ['dark', 'midnight', 'steel', 'ocean'];
+const NAV_PATHS = [
+  '/dashboard',
+  '/reportes',
+  '/cotizaciones',
+  '/nueva-cotizacion',
+  '/servicios',
+  '/equipo',
+  '/historial',
+  '/mi-trabajo',
+  '/configuracion',
+];
 
 const clampInt = (value: any, min: number, max: number): number | null => {
   const n = Number(value);
@@ -14,11 +26,37 @@ const clampInt = (value: any, min: number, max: number): number | null => {
   return i >= min && i <= max ? i : null;
 };
 
+/* Nav arrays: known routes only, no duplicates, max 30 entries */
+const parseNavArray = (value: any): string[] | null => {
+  if (!Array.isArray(value) || value.length > 30) return null;
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !NAV_PATHS.includes(item)) return null;
+    if (!out.includes(item)) out.push(item);
+  }
+  return out;
+};
+
+const parseNavJson = (raw: any): string[] => {
+  if (typeof raw !== 'string' || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string' && NAV_PATHS.includes(x)) : [];
+  } catch {
+    return [];
+  }
+};
+
 router.get('/', async (_req: any, res: any) => {
   const db = getPool();
   try {
     const s = await db.query("SELECT * FROM settings WHERE id = 'app'");
-    res.json(s.rows[0] ? toCamel(s.rows[0]) : null);
+    const row = s.rows[0] ? toCamel(s.rows[0]) : null;
+    if (row) {
+      row.sidebarOrder = parseNavJson((row as any).sidebarOrder);
+      row.sidebarHidden = parseNavJson((row as any).sidebarHidden);
+    }
+    res.json(row);
   } catch (err) {
     res.status(500).json({ error: 'Error en servidor' });
   }
@@ -31,10 +69,16 @@ router.get('/public', async (_req: any, res: any) => {
   try {
     const s = await db.query(
       `SELECT company_name, company_logo, currency, notif_interval, margin_minimum,
-              team_default_role, team_default_title, phone, email, payment_alias, payment_titular
+              team_default_role, team_default_title, phone, email, payment_alias, payment_titular,
+              theme, sidebar_order, sidebar_hidden, login_tagline
        FROM settings WHERE id = 'app'`
     );
-    res.json(s.rows[0] ? toCamel(s.rows[0]) : null);
+    const row = s.rows[0] ? toCamel(s.rows[0]) : null;
+    if (row) {
+      row.sidebarOrder = parseNavJson((row as any).sidebarOrder);
+      row.sidebarHidden = parseNavJson((row as any).sidebarHidden);
+    }
+    res.json(row);
   } catch (err) {
     res.status(500).json({ error: 'Error en servidor' });
   }
@@ -63,6 +107,10 @@ router.put('/', async (req: any, res: any) => {
     loginLockoutMinutes,
     teamDefaultRole,
     teamDefaultTitle,
+    theme,
+    sidebarOrder,
+    sidebarHidden,
+    loginTagline,
   } = req.body || {};
   const marginValue = marginMinimum !== undefined ? marginMinimum : margin;
   try {
@@ -108,6 +156,36 @@ router.put('/', async (req: any, res: any) => {
       }
       teamTitleValue = teamDefaultTitle.trim();
     }
+    let themeValue: string | null = null;
+    if (theme !== undefined && theme !== null) {
+      if (typeof theme !== 'string' || !THEME_CODES.includes(theme)) {
+        return res.status(400).json({ error: 'Tema no válido' });
+      }
+      themeValue = theme;
+    }
+    let sidebarOrderValue: string | null = null;
+    if (sidebarOrder !== undefined && sidebarOrder !== null) {
+      const arr = parseNavArray(sidebarOrder);
+      if (arr === null) {
+        return res.status(400).json({ error: 'Orden del sidebar inválido' });
+      }
+      sidebarOrderValue = JSON.stringify(arr);
+    }
+    let sidebarHiddenValue: string | null = null;
+    if (sidebarHidden !== undefined && sidebarHidden !== null) {
+      const arr = parseNavArray(sidebarHidden);
+      if (arr === null) {
+        return res.status(400).json({ error: 'Elementos ocultos inválidos' });
+      }
+      sidebarHiddenValue = JSON.stringify(arr);
+    }
+    let taglineValue: string | null = null;
+    if (loginTagline !== undefined && loginTagline !== null) {
+      if (typeof loginTagline !== 'string' || loginTagline.length > 200) {
+        return res.status(400).json({ error: 'Texto del login demasiado largo (máx. 200)' });
+      }
+      taglineValue = loginTagline;
+    }
     const result = await db.query(
       `UPDATE settings SET
          company_name = COALESCE($1, company_name),
@@ -129,7 +207,11 @@ router.put('/', async (req: any, res: any) => {
          login_lockout_minutes = COALESCE($17, login_lockout_minutes),
          team_default_role = COALESCE($18, team_default_role),
          team_default_title = COALESCE($19, team_default_title),
-         updated_at = $20
+         theme = COALESCE($20, theme),
+         sidebar_order = COALESCE($21, sidebar_order),
+         sidebar_hidden = COALESCE($22, sidebar_hidden),
+         login_tagline = COALESCE($23, login_tagline),
+         updated_at = $24
        WHERE id = 'app'`,
       [
         companyName !== undefined ? companyName : null,
@@ -153,6 +235,10 @@ router.put('/', async (req: any, res: any) => {
           ? teamDefaultRole
           : null,
         teamTitleValue,
+        themeValue,
+        sidebarOrderValue,
+        sidebarHiddenValue,
+        taglineValue,
         new Date().toISOString(),
       ]
     );
@@ -161,8 +247,9 @@ router.put('/', async (req: any, res: any) => {
         `INSERT INTO settings (id, company_name, company_logo, margin_minimum, payment_alias,
            payment_titular, phone, email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from,
            smtp_enabled, currency, notif_interval, login_max_attempts, login_lockout_minutes,
-           team_default_role, team_default_title, updated_at)
-         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+           team_default_role, team_default_title, theme, sidebar_order, sidebar_hidden,
+           login_tagline, updated_at)
+         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
          ON CONFLICT (id) DO NOTHING`,
         [
           companyName || 'TeknoTech Services',
@@ -184,6 +271,10 @@ router.put('/', async (req: any, res: any) => {
           lockoutValue ?? 15,
           teamDefaultRole || 'vendedor',
           teamTitleValue || '',
+          themeValue || 'dark',
+          sidebarOrderValue || '[]',
+          sidebarHiddenValue || '[]',
+          taglineValue || 'Tecnología que impulsa,|lealtad que permanece.',
           new Date().toISOString(),
         ]
       );

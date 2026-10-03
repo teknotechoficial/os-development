@@ -63,8 +63,12 @@ export async function initDatabase(): Promise<void> {
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS login_max_attempts INTEGER DEFAULT 5`,
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS login_lockout_minutes INTEGER DEFAULT 15`,
     `ALTER TABLE settings ADD COLUMN IF NOT EXISTS team_default_role TEXT DEFAULT 'vendedor'`,
-    `ALTER TABLE settings ADD COLUMN IF NOT EXISTS team_default_title TEXT DEFAULT ''`,
-    `CREATE TABLE IF NOT EXISTS login_attempts (
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS team_default_title TEXT DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dark'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_order TEXT DEFAULT '[]'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_hidden TEXT DEFAULT '[]'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS login_tagline TEXT DEFAULT 'Tecnología que impulsa,|lealtad que permanece.'`,
+  `CREATE TABLE IF NOT EXISTS login_attempts (
       id TEXT PRIMARY KEY, identifier TEXT NOT NULL, success BOOLEAN NOT NULL,
       ip TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,

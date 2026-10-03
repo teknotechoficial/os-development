@@ -17,9 +17,33 @@ import {
 import { useAuth, isSetupRequired } from '@/renderer/store/auth';
 import { useQuotes } from '@/renderer/store/quotes';
 import { useTeam } from '@/renderer/store/team';
+import { apiUrl } from '@/renderer/api';
 import { Button, Spinner } from '@/renderer/components/ui';
 
 const LOGO_URL = new URL('../../../assets/logo-white.png', import.meta.url).href;
+
+const DEFAULT_NAME = 'TeknoTech Services';
+const DEFAULT_TAGLINE = 'Tecnología que impulsa,|lealtad que permanece.';
+
+type PubSettings = { logo: string; name: string; tagline: string };
+
+const readPubSettings = (): PubSettings => {
+  try {
+    const raw = window.localStorage.getItem('nt_pub_settings');
+    if (!raw) return { logo: '', name: DEFAULT_NAME, tagline: DEFAULT_TAGLINE };
+    const p = JSON.parse(raw);
+    return {
+      logo: p && typeof p.logo === 'string' ? p.logo : '',
+      name: p && typeof p.name === 'string' && p.name.trim() ? p.name.trim().slice(0, 80) : DEFAULT_NAME,
+      tagline:
+        p && typeof p.tagline === 'string' && p.tagline.trim()
+          ? p.tagline.trim().slice(0, 200)
+          : DEFAULT_TAGLINE,
+    };
+  } catch {
+    return { logo: '', name: DEFAULT_NAME, tagline: DEFAULT_TAGLINE };
+  }
+};
 
 const SERVICE_CARDS = [
   { icon: Monitor, label: 'DESARROLLO WEB' },
@@ -43,6 +67,41 @@ const Login: React.FC = () => {
   const [pin, setPin] = React.useState('');
   const [error, setError] = React.useState('');
   const [submitting, setSubmitting] = React.useState<'password' | 'code' | null>(null);
+  const [pub, setPub] = React.useState<PubSettings>(() => readPubSettings());
+
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(apiUrl('/api/settings/public'));
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active || !data || typeof data !== 'object') return;
+        const next: PubSettings = {
+          logo: typeof data.companyLogo === 'string' ? data.companyLogo.slice(0, 300000) : '',
+          name:
+            typeof data.companyName === 'string' && data.companyName.trim()
+              ? data.companyName.trim().slice(0, 80)
+              : DEFAULT_NAME,
+          tagline:
+            typeof data.loginTagline === 'string' && data.loginTagline.trim()
+              ? data.loginTagline.trim().slice(0, 200)
+              : DEFAULT_TAGLINE,
+        };
+        setPub(next);
+        try {
+          window.localStorage.setItem('nt_pub_settings', JSON.stringify(next));
+        } catch {
+          /* sin localStorage */
+        }
+      } catch {
+        /* sin conexión: se conservan los valores por defecto */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const enterApp = async () => {
     await fetchMyQuotes();
@@ -100,13 +159,22 @@ const Login: React.FC = () => {
     setMode((m) => (m === 'password' ? 'code' : 'password'));
   };
 
+  const nameParts = pub.name.split(' ').filter(Boolean);
+  const brandMain = (nameParts[0] || 'TeknoTech').toUpperCase();
+  const brandSub = nameParts.slice(1).join(' ').toUpperCase();
+  const taglineLines = pub.tagline
+    .split('|')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const heroLogo = pub.logo || LOGO_URL;
+
   return (
     <div className="h-screen overflow-hidden bg-[#0A182E] flex">
       <aside className="hidden lg:flex flex-1 relative overflow-hidden bg-[radial-gradient(ellipse_at_top_left,rgba(24,119,232,0.16),transparent_55%)]">
         <div className="absolute top-0 left-0 w-56 border-t-2 border-l-2 border-[#1877E8]/40 h-16 pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-56 border-b-2 border-r-2 border-[#1877E8]/40 h-16 pointer-events-none" />
         <img
-          src={LOGO_URL}
+          src={heroLogo}
           alt=""
           aria-hidden="true"
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-w-none opacity-[0.07] pointer-events-none select-none animate-logo-float"
@@ -116,17 +184,22 @@ const Login: React.FC = () => {
           <div className="flex-1 flex flex-col justify-center gap-10 max-w-xl mx-auto w-full">
             <div className="flex items-center gap-6">
               <div className="w-[156px] h-[156px] rounded-[30px] bg-[#10233E] border border-[#1877E8]/30 p-2.5 flex items-center justify-center shrink-0 shadow-[0_14px_44px_-12px_rgba(24,119,232,0.4)] animate-logo-float-soft">
-                <img src={LOGO_URL} alt="TeknoTech" className="w-[136px] h-[136px] object-contain" />
+                <img src={heroLogo} alt={brandMain} className="w-[136px] h-[136px] object-contain" />
               </div>
               <div>
-                <p className="font-display text-[42px] leading-none text-white tracking-[0.08em]">TEKNOTECH</p>
-                <p className="font-display text-[26px] text-[#1877E8] tracking-[0.35em] mt-2">SERVICES</p>
+                <p className="font-display text-[42px] leading-none text-white tracking-[0.08em]">{brandMain}</p>
+                {brandSub ? (
+                  <p className="font-display text-[26px] text-[#1877E8] tracking-[0.35em] mt-2">{brandSub}</p>
+                ) : null}
               </div>
             </div>
 
             <div>
-              <p className="text-white text-2xl">Tecnología que impulsa,</p>
-              <p className="text-white text-2xl">lealtad que permanece.</p>
+              {taglineLines.map((line) => (
+                <p key={line} className="text-white text-2xl">
+                  {line}
+                </p>
+              ))}
             </div>
 
             <div className="grid grid-cols-4 gap-4">
@@ -145,7 +218,7 @@ const Login: React.FC = () => {
 
           <div className="flex items-center gap-4 pt-8">
             <span className="text-[11px] tracking-[0.4em] text-[#1877E8] uppercase font-semibold whitespace-nowrap">
-              TeknoTech Services
+              {pub.name}
             </span>
             <span className="flex-1 h-px bg-gradient-to-r from-[#1877E8]/70 to-transparent" />
           </div>
