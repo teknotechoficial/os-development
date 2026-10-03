@@ -249,13 +249,15 @@ const QuoteDetail: React.FC = () => {
 					<Card className="p-6">
 						<h2 className={CARD_TITLE}>Precio</h2>
 						<p className="text-xs uppercase tracking-[0.12em] text-[#8FA6C4] font-semibold">
-							Precio base
+							Subtotal servicios
 						</p>
 						<p className="text-lg font-semibold text-white mt-1">{formatCurrency(quote.basePrice)}</p>
-						<div className="flex justify-between text-sm py-2 mt-2">
-							<span className="text-[#8FA6C4]">Margen</span>
-							<span className="text-[#D6E2F2]">{formatCurrency(quote.margin)}</span>
-						</div>
+						{quote.margin > 0 && (
+							<div className="flex justify-between text-sm py-2 mt-2">
+								<span className="text-[#8FA6C4]">Mínimo de venta</span>
+								<span className="text-[#F59E0B]">{formatCurrency(quote.margin)}</span>
+							</div>
+						)}
 						<div className="border-t border-[#1C3557] my-2" />
 						<div className="flex justify-between items-center pt-2">
 							<span className="font-display text-xs uppercase tracking-[0.2em] text-[#8FA6C4]">

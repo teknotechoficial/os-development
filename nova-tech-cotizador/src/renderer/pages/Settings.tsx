@@ -1172,7 +1172,7 @@ const Settings: React.FC = () => {
 										/>
 										<div>
 											<label htmlFor="settings-margin" className={LABEL_CLASS}>
-												Margen mínimo (%)
+												Mínimo de venta (USD)
 											</label>
 											<input
 												id="settings-margin"

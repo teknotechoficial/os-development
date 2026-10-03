@@ -1,4 +1,4 @@
-import { MINIMUM_MARGIN, PERCENTAGE_MARGIN_RATE } from './constants';
+import { MINIMUM_MARGIN } from './constants';
 
 type ProductType = string;
 type QuoteConfig = any;
@@ -157,15 +157,9 @@ export function calculateBasePrice(productType: ProductType, config: QuoteConfig
   return Math.round(price);
 }
 
-export function calculateFinalPrice(basePrice: number, margin?: number): number {
-  const applied = typeof margin === 'number' && isFinite(margin) ? Math.round(margin) : Math.max(MINIMUM_MARGIN, basePrice * PERCENTAGE_MARGIN_RATE);
-  return Math.round(basePrice + applied);
-}
-export function calculateSuggestedMargin(basePrice: number): number {
-  return Math.round(Math.max(MINIMUM_MARGIN, basePrice * PERCENTAGE_MARGIN_RATE));
-}
-export function isValidMargin(margin: number): boolean {
-  return isFinite(margin) && margin >= MINIMUM_MARGIN;
+/* Total to charge: sum of services (basePrice), never below the minimum sale price */
+export function calculateFinalPrice(basePrice: number): number {
+  return Math.max(Math.round(basePrice), MINIMUM_MARGIN);
 }
 
 export function getProductDetails(productType: ProductType, config: QuoteConfig): string[] {

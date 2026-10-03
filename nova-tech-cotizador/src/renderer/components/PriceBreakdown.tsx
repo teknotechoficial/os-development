@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatCurrency } from '@/shared/validators';
+import { MIN_TOTAL_MESSAGE } from '@/shared/constants';
 import { Card } from '@/renderer/components/ui';
 
 export interface PriceBreakdownItem {
@@ -11,12 +12,11 @@ export interface PriceBreakdownItem {
 interface Props {
 	items: PriceBreakdownItem[];
 	basePrice: number;
-	margin: number;
-	suggestedMargin: number;
 	finalPrice: number;
 }
 
-const PriceBreakdown: React.FC<Props> = ({ items, basePrice, margin, suggestedMargin, finalPrice }) => {
+const PriceBreakdown: React.FC<Props> = ({ items, basePrice, finalPrice }) => {
+	const aplicaMinimo = finalPrice > basePrice;
 	return (
 		<Card className="p-6">
 			<h2 className="font-display text-xs uppercase tracking-[0.2em] text-[#8FA6C4] border-b border-[#1C3557] pb-3 mb-4">
@@ -49,15 +49,17 @@ const PriceBreakdown: React.FC<Props> = ({ items, basePrice, margin, suggestedMa
 						<span className="text-[#D6E2F2]">{formatCurrency(basePrice)}</span>
 					</div>
 				)}
-				<div className="flex justify-between py-2">
-					<span className="text-[11px] uppercase tracking-[0.12em] text-[#5B7295]">
-						Tu margen
-					</span>
-					<span className="text-[11px] text-[#5B7295]">{formatCurrency(margin)}</span>
-				</div>
-				<div className="text-[#5B7295] text-[11px]">
-					Mínimo sugerido: {formatCurrency(suggestedMargin)}
-				</div>
+				{aplicaMinimo && (
+					<>
+						<div className="flex justify-between py-2">
+							<span className="text-[11px] uppercase tracking-[0.12em] text-[#5B7295]">
+								Mínimo de venta
+							</span>
+							<span className="text-[11px] text-[#F59E0B]">{formatCurrency(finalPrice - basePrice)}</span>
+						</div>
+						<div className="text-[#F59E0B] text-[11px]">{MIN_TOTAL_MESSAGE}</div>
+					</>
+				)}
 				<div className="border-t border-[#1C3557] my-2" />
 				<div className="flex justify-between items-center pt-2">
 					<span className="font-display text-xs uppercase tracking-[0.2em] text-[#8FA6C4] font-semibold">

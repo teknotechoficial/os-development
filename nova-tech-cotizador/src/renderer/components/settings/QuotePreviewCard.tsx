@@ -65,7 +65,7 @@ export default function QuotePreviewCard(props: QuotePreviewCardProps) {
 				<div className="flex flex-wrap gap-2 mt-3">
 					<span className={CHIP_CLASS}>{`Alias: ${paymentAlias || '—'}`}</span>
 					<span className={CHIP_CLASS}>{`Titular: ${paymentTitular || '—'}`}</span>
-					<span className={CHIP_CLASS}>{`Margen mínimo: ${marginMinimum}%`}</span>
+									<span className={CHIP_CLASS}>{`Mínimo de venta: $${marginMinimum} USD`}</span>
 				</div>
 			</div>
 		</section>

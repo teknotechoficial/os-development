@@ -4,8 +4,8 @@ import { AlertCircle, LayoutGrid, Send } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { useQuotes } from '@/renderer/store/quotes';
-import { calculateSuggestedMargin, isValidMargin } from '@/shared/pricing';
-import { MARGIN_MIN_MESSAGE } from '@/shared/constants';
+import { calculateFinalPrice } from '@/shared/pricing';
+import { MINIMUM_MARGIN, MIN_TOTAL_MESSAGE } from '@/shared/constants';
 import { formatCurrency } from '@/shared/validators';
 import { Service } from '@/shared/types';
 import PriceBreakdown from '@/renderer/components/PriceBreakdown';
@@ -43,8 +43,6 @@ const NewQuote: React.FC = () => {
 	const [services, setServices] = useState<Service[]>([]);
 	const [loadingServices, setLoadingServices] = useState(true);
 	const [selected, setSelected] = useState<Record<string, boolean>>({});
-	const [margin, setMargin] = useState('');
-	const [marginTouched, setMarginTouched] = useState(false);
 
 	useEffect(() => {
 		fetchTeam();
@@ -66,14 +64,8 @@ const NewQuote: React.FC = () => {
 
 	const seleccionados = services.filter((s) => selected[s.id]);
 	const basePrice = seleccionados.reduce((a, s) => a + s.basePrice, 0);
-	const suggestedMargin = calculateSuggestedMargin(basePrice);
-	const marginNum = Number(margin);
-	const validMargin = isValidMargin(marginNum) ? marginNum : suggestedMargin;
-	const finalPrice = basePrice + validMargin;
-
-	useEffect(() => {
-		if (!marginTouched) setMargin(String(suggestedMargin));
-	}, [suggestedMargin, marginTouched]);
+	const finalPrice = calculateFinalPrice(basePrice);
+	const aplicaMinimo = seleccionados.length > 0 && finalPrice > basePrice;
 
 	const toggleService = (id: string) =>
 		setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -83,7 +75,6 @@ const NewQuote: React.FC = () => {
 		if (!clientName || clientName.trim().length < 2)
 			nextErrors.push('El nombre del cliente debe tener al menos 2 caracteres');
 		if (seleccionados.length === 0) nextErrors.push('Seleccioná al menos un servicio.');
-		if (!isValidMargin(marginNum)) nextErrors.push(MARGIN_MIN_MESSAGE);
 		if (nextErrors.length > 0) {
 			setErrors(nextErrors);
 			return;
@@ -101,7 +92,6 @@ const NewQuote: React.FC = () => {
 					sellerId: user!.id,
 					developerId: selectedDeveloper || null,
 					items: seleccionados.map((s) => ({ serviceId: s.id, quantity: 1 })),
-					margin: validMargin,
 				}),
 			});
 			const data = await response.json().catch(() => ({}));
@@ -186,35 +176,13 @@ const NewQuote: React.FC = () => {
 						</div>
 
 						<div className="mt-6 border-t border-[#1C3557] pt-4">
-							<div className="flex items-end justify-between gap-3">
-								<div className="flex-1">
-									<label htmlFor="quote-margin" className={FIELD_LABEL}>
-										Tu margen (USD)
-									</label>
-									<input
-										id="quote-margin"
-										type="number"
-										min={250}
-										value={margin}
-										onChange={(e) => {
-											setMargin(e.target.value);
-											setMarginTouched(true);
-										}}
-										className={FIELD_INPUT}
-										placeholder="250"
-									/>
-								</div>
-								<button
-									type="button"
-									id="quote-margin-suggested"
-									onClick={() => setMargin(String(suggestedMargin))}
-									className="mb-3 text-[11px] uppercase tracking-[0.12em] text-[#1877E8] hover:text-white transition-colors"
-								>
-									Usar sugerido
-								</button>
-							</div>
-							{margin !== '' && !isValidMargin(marginNum) && (
-								<p className="mt-2 text-xs text-[#E11D48]">{MARGIN_MIN_MESSAGE}</p>
+							{aplicaMinimo && (
+								<p className="text-xs text-[#F59E0B]">{MIN_TOTAL_MESSAGE}</p>
+							)}
+							{!aplicaMinimo && seleccionados.length > 0 && (
+								<p className="text-xs text-[#5B7295]">
+									Total a cobrar: la suma de los servicios seleccionados.
+								</p>
 							)}
 						</div>
 					</>
@@ -236,8 +204,6 @@ const NewQuote: React.FC = () => {
 				<PriceBreakdown
 					items={seleccionados.map((s) => ({ name: s.name, unitPrice: s.basePrice, quantity: 1 }))}
 					basePrice={basePrice}
-					margin={validMargin}
-					suggestedMargin={suggestedMargin}
 					finalPrice={finalPrice}
 				/>
 			)}

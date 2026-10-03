@@ -690,3 +690,48 @@
   de `app.asar` > build.
 - Cierre: `DELETE FROM login_attempts` antes/después de cada E2E; cerrar todos los
   procesos (app Electron + tsx server) y verificar `restantes=0`, `server=down`.
+
+---
+
+## build26 — 2026-10-03 — MÉTODO DE COTIZACIÓN CORREGIDO (crítico)
+
+**Estado: CERRADA (E2E verde, push).**
+
+### El método real (corrección del usuario — ANTERIORMENTE MAL INTERPRETADO)
+- **Total = SUMA de los precios de los servicios seleccionados** (ej: 300+250 = **550**,
+  NO suma un margen encima; la app anterior daba 800).
+- **Piso de venta $250**: si Σ < 250 → se cobra 250 (ej: solo servicio 150 → 250).
+- NO existe input "margen" en el flujo de servicios.
+
+### Implementado (build26)
+- `pricing.ts`: `calculateFinalPrice(base) = Math.max(round(base), MINIMUM_MARGIN)`;
+  eliminados `calculateSuggestedMargin`, `isValidMargin`, `PERCENTAGE_MARGIN_RATE`,
+  `MARGIN_MIN_MESSAGE` → nuevo `MIN_TOTAL_MESSAGE = 'El mínimo de venta es de $250 USD'`.
+- `server/quotes.ts`: body `margin` se IGNORA (ya no valida 400); final = max(base,250),
+  base = Σ items (o legacy configurador); `margin` persistido = final - base (0 si Σ≥250).
+- UI: sin input Tu margen; PriceBreakdown Subtotal → Precio Final (=Σ) + fila naranja
+  "Mínimo de venta" si aplica; nota "Total a cobrar: la suma de los servicios seleccionados";
+  QuoteDetail "Subtotal servicios" + fila mínimo si margin>0.
+- Settings: label "Margen mínimo (%)" → "Mínimo de venta (USD)" (id `settings-margin`
+  INTACTO por contrato b13 5.5b); chip preview → "Mínimo de venta: $250 USD".
+
+### E2E build26 (TODO VERDE)
+- verify-b25-server **33/33** (suma 450→450 exacta, piso 150→250/margin100, margin:100
+  ignorado→200, legacy max(base,250)) · verify-b25 **40/40** (sin input margen, final=450,
+  caso piso UI, quote finalPrice=basePrice margin=0) · b13 **78/78** · settings-new **24/24**
+  · c/d/b2/v5 exit 0 · tsc 0/0 · vite OK · NSIS intento 1 (esta vez SIN bloqueo AppLocker)
+  · setup 80.6MB/ASAR 40.8MB · capturas b25-seleccion + b26-piso-250 verificadas.
+
+### Gotchas build26
+- **Detección de card activa en NewQuote**: usar clase `bg-[#1877E8]/10` (la activa),
+  NUNCA `border-[#1877E8]` — la inactiva tiene `hover:border-[#1877E8]/60` que CONTIENE
+  ese substring → todas parecen activas (rompe toggles de probes).
+- Credenciales seed (juan/amauir): habilitar con UPDATE scrypt ANTES del E2E de roles y
+  restaurar con `PUT /api/team/:id/reset-credentials` al cierre (patrón ya probado).
+- b13 NO verifica fórmulas de precio (solo id `settings-margin`) → cambio de método sin
+  riesgo de romperlo; verify-b25 y verify-b25-server SÍ hay que reescribirlos por lote.
+- MARGIN_MIN_MESSAGE/PERCENTAGE_MARGIN_RATE: referencias se limpiaron en constants,
+  index.ts, pricing, NewQuote, server/quotes (grep final = solo types Quote.margin que
+  sigue válido como columna BD).
+- Cierre estándar: reset-credentials + DELETE login_attempts + kill procesos +
+  restantes=0 + server=down + credenciales seed en false.

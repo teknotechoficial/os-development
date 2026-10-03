@@ -38,6 +38,52 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build26] - 2026-10-03
+
+### Fixed
+- **MÉTODO DE COTIZACIÓN CORREGIDO (crítico)** — la app sumaba un "margen" encima
+  de la base en vez de usar el método real de venta:
+  - **Total = suma de los precios de los servicios seleccionados** (ej: sistema a
+    medido $300 + landing $250 → **$550**, no $800).
+  - **Piso de venta de $250 USD**: si la suma queda por debajo, se cobra $250
+    (ej: solo un servicio de $150 → total $250).
+  - `calculateFinalPrice(basePrice) = max(basePrice, 250)` en
+    `src/shared/pricing.ts`; eliminados `calculateSuggestedMargin`,
+    `isValidMargin`, `PERCENTAGE_MARGIN_RATE` y `MARGIN_MIN_MESSAGE`
+    (reemplazado por `MIN_TOTAL_MESSAGE = 'El mínimo de venta es de $250 USD'`).
+  - **Server**: `POST /api/quotes` ya no valida/acepta `margin` del body (se
+    ignora si viene); `final = max(base, 250)` con `base = Σ items` (o la base
+    legacy del configurador), `margin` persistido = `final - base` (0 cuando la
+    suma supera el piso). Ruta sin-items conserva compatibilidad de esquema.
+  - **UI**: eliminado el input "Tu margen (USD)" y el botón "Usar sugerido" de
+    Nueva Cotización; PriceBreakdown muestra Servicios → Subtotal →
+    **Precio Final = suma exacta**, y cuando aplica el piso agrega la fila
+    naranja **"Mínimo de venta"** con `MIN_TOTAL_MESSAGE`; nota "Total a cobrar:
+    la suma de los servicios seleccionados". QuoteDetail: "Subtotal servicios"
+    + fila "Mínimo de venta" solo cuando `margin > 0`.
+  - **Ajustes**: label `settings-margin` "Margen mínimo (%)" → **"Mínimo de
+    venta (USD)"** (el valor 250 era USD, no %); preview de cotización chip
+    "Margen mínimo: X%" → "Mínimo de venta: $X USD" (ambos labels corrigen un
+    bug semántico preexistente; el id `settings-margin` se conserva intacto
+    para compatibilidad con `verify-b13` 5.5b).
+
+### E2E
+- Suite completa tras build (NSIS intento 1 sin bloqueos, setup 80.6 MB,
+  ASAR 40.8 MB): probes de precio **reescritos al método nuevo** —
+  `verify-b25-server` **33/33** (suma 450 → 450 exacto sin aditivo, servicio
+  $150 → piso 250 con margin 100, body `margin:100` ignorado → 200,
+  legacy `max(base,250)`), `verify-b25` **40/40** (sin input margen, final =
+  suma exacta 450, caso piso $150 → $250 con fila/naranja, quote guardada
+  `finalPrice=basePrice, margin=0`), `verify-b13` **78/78**,
+  `verify-settings-new` **24/24**, `verify-c/d/b2/v5` exit 0, tsc 0/0,
+  vite OK, 0 excepciones/0 console errors.
+- Capturas verificadas: `b25-nueva-cotizacion-seleccion.png` (nota "Total a
+  cobrar: la suma de los servicios seleccionados") y `b26-piso-250.png`
+  (servicio $150 solo → "El mínimo de venta es de $250 USD").
+- Credenciales de prueba gerente/vendedor habilitadas para el E2E de roles y
+  restauradas al estado seed (`has_credentials=false`); `login_attempts`
+  limpio; app/servidor cerrados (`restantes=0`).
+
 ## [1.0.0-build25] - 2026-10-03
 
 ### Added

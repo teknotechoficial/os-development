@@ -13,7 +13,7 @@ interface QuotesState {
   removeQuote: (id: string) => void;
   updateQuote: (id: string, updates: Partial<Quote>) => void;
   setCurrentQuote: (quote: Quote | null) => void;
-  calculatePrice: (productType: ProductType, config: QuoteConfig, margin?: number) => { basePrice: number; finalPrice: number };
+  calculatePrice: (productType: ProductType, config: QuoteConfig) => { basePrice: number; finalPrice: number };
   fetchMyQuotes: () => Promise<void>;
   fetchQuote: (id: string) => Promise<Quote | null>;
   updateQuoteStatus: (id: string, status: string) => Promise<void>;
@@ -36,9 +36,9 @@ export const useQuotes = create<QuotesState>()(
         currentQuote: state.currentQuote?.id === id ? { ...state.currentQuote, ...updates } : state.currentQuote,
       })),
     setCurrentQuote: (quote) => set({ currentQuote: quote }),
-    calculatePrice: (productType, config, margin) => {
+    calculatePrice: (productType, config) => {
       const basePrice = calculateBasePrice(productType, config);
-      const finalPrice = calculateFinalPrice(basePrice, margin);
+      const finalPrice = calculateFinalPrice(basePrice);
       return { basePrice, finalPrice };
     },
     fetchMyQuotes: async () => {

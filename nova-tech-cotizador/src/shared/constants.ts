@@ -23,9 +23,9 @@ export const COMPANY = {
   },
 } as const;
 
+/* Minimum sale price (USD): total below this is charged at this floor */
 export const MINIMUM_MARGIN = 250;
-export const PERCENTAGE_MARGIN_RATE = 0.15;
-export const MARGIN_MIN_MESSAGE = 'El margen mínimo es de $250 USD';
+export const MIN_TOTAL_MESSAGE = 'El mínimo de venta es de $250 USD';
 
 export const PRODUCT_NAMES: Record<string, string> = {
   web: 'Página Web',

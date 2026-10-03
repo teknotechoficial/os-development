@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { getPool, mapRows, toCamel } from '../db';
 import { randomUUID } from 'crypto';
-import { calculateBasePrice, calculateFinalPrice, calculateSuggestedMargin } from '../../src/shared/pricing';
-import { MARGIN_MIN_MESSAGE, MINIMUM_MARGIN } from '../../src/shared/constants';
+import { calculateBasePrice, calculateFinalPrice } from '../../src/shared/pricing';
 import { notify, notifyRoles } from '../notifications';
 
 const router = Router();
@@ -43,15 +42,11 @@ router.get('/:id', async (req: any, res: any) => {
 
 router.post('/', async (req: any, res: any) => {
 	const db = getPool();
-	const { productType, config, clientName, clientType, sellerId, developerId, items, margin, actorId } = req.body;
-	if (margin !== undefined && (typeof margin !== 'number' || !isFinite(margin) || margin < MINIMUM_MARGIN)) {
-		return res.status(400).json({ error: MARGIN_MIN_MESSAGE });
-	}
+	const { productType, config, clientName, clientType, sellerId, developerId, items, actorId } = req.body;
 	try {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		let base = 0;
-		let itemsBase = false;
 		let normalizedItems: any[] = [];
 		if (Array.isArray(items) && items.length) {
 			const serviceIds = Array.from(new Set(items.map((it: any) => it && it.serviceId).filter(Boolean)));
@@ -73,18 +68,11 @@ router.post('/', async (req: any, res: any) => {
 				normalizedItems.push({ serviceId: svc.id, name: svc.name, unitPrice, quantity });
 			}
 			base = sum;
-			itemsBase = true;
 		} else {
 			base = calculateBasePrice(productType, config);
 		}
-		let finalPrice: number;
-		if (margin !== undefined) {
-			finalPrice = base + Math.round(margin);
-		} else if (itemsBase) {
-			finalPrice = base + calculateSuggestedMargin(base);
-		} else {
-			finalPrice = calculateFinalPrice(base);
-		}
+		/* Total = sum of selected services (or legacy base), never below the minimum sale price */
+		const finalPrice = calculateFinalPrice(base);
 		const appliedMargin = finalPrice - base;
 		await db.query(
 			'INSERT INTO quotes (id, client_name, client_type, product_type, config, items, base_price, margin, final_price, seller_id, developer_id, assigned_at, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
