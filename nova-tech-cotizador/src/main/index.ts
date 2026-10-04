@@ -1,7 +1,7 @@
 import { initDatabase, closeDatabase } from './database';
 import { registerHandlers } from './ipc';
 import { start as startServer } from '../../server';
-import { BrowserWindow, app, Menu, shell } from 'electron';
+import { BrowserWindow, app, Menu, shell, nativeImage } from 'electron';
 import { join } from 'path';
 import dotenv from 'dotenv';
 
@@ -9,19 +9,30 @@ dotenv.config({ path: join(app.getAppPath(), '.env') });
 
 let mainWindow: BrowserWindow | null = null;
 
-/* Window title follows the CEO-configured program name (settings.companyName) */
+/* Window title follows the CEO-configured program name + title suffix */
 async function applyWindowTitle(): Promise<void> {
 	const port = process.env.PORT || 3001;
 	for (let attempt = 0; attempt < 5 && mainWindow; attempt++) {
 		try {
 			const res = await fetch(`http://localhost:${port}/api/settings/public`);
 			if (res.ok) {
-				const data = (await res.json()) as { companyName?: unknown } | null;
+				const data = (await res.json()) as {
+					companyName?: unknown;
+					appTitleSuffix?: unknown;
+					appIcon?: unknown;
+				} | null;
 				const name =
 					data && typeof data.companyName === 'string' && data.companyName.trim()
 						? data.companyName.trim().slice(0, 80)
 						: 'TeknoTech Services';
-				if (mainWindow) mainWindow.setTitle(`${name} Cotizador`);
+				const suffix =
+					data && typeof data.appTitleSuffix === 'string' ? data.appTitleSuffix.trim().slice(0, 40) : 'Cotizador';
+				if (mainWindow) mainWindow.setTitle(suffix ? `${name} ${suffix}` : name);
+				const appIcon = data && typeof data.appIcon === 'string' ? data.appIcon : '';
+				if (mainWindow && appIcon.startsWith('data:image/')) {
+					const img = nativeImage.createFromDataURL(appIcon);
+					if (!img.isEmpty()) mainWindow.setIcon(img);
+				}
 				return;
 			}
 		} catch {

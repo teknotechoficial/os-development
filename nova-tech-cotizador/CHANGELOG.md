@@ -38,6 +38,61 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build29] - 2026-10-03
+
+### Added
+- **Personalización global 100% configurable con sistema de permisos** (primer build de
+  la saga "todo configurable": fundación + permiso + etiquetas/sufijo/icono/versionado;
+  siguen editor de temas nuevos y sistema de bloques):
+  - **Guard de personalización server-side**: `authorizeCustomization(req)` en
+    `PUT /api/settings` y `POST /api/settings/test-mail` valida header `x-user-id`
+    → 401 sin identidad/usuario inválido, 403 si no es `super_admin` ni tiene el
+    nuevo permiso `users.can_customize_ui` (antes cualquier cliente podía mutar
+    settings sin autenticación).
+  - **Permiso "Personalización" por usuario** (`can_customize_ui`): columna nueva en
+    `users`, toggle "Permitido/No permitido" en el modal Gestionar equipo (columna
+    PERSONALIZAR, solo visible para el CEO), `PUT /api/team/:id {canCustomizeUi}`
+    exige CEO por `x-user-id`. El usuario autorizado ve Ajustes completo:
+    `ProtectedRoute` acepta `allowCustomize` en `/configuracion` y el sidebar
+    (`AppLayout.canSee`) muestra Ajustes con el permiso.
+  - **Renombrar menús** (`settings.sidebar_labels`): input por fila en
+    "Sidebar y navegación" (vacío = nombre original, máx. 40 chars, solo rutas
+    conocidas); el sidebar renderiza la etiqueta personalizada (`AppLayout`
+    `sidebarLabels[path] || label`) con label/aria coherentes.
+  - **Identidad de la aplicación**: card nueva en tab Sistema con **sufijo del
+    título** (`app_title_suffix`, default "Cotizador", aplica al título de la
+    ventana vía `set-title`/`applyWindowTitle` y al asunto de los correos),
+    **icono de la ventana** (`app_icon` dataURL ≤300 KB, IPC `set-app-icon` con
+    `nativeImage.setIcon` + `BrowserWindow.setIcon` al arrancar y en runtime,
+    preview + "Quitar" en Ajustes, favicon del renderer) y **badge de versión**.
+  - **Versionado de personalización**: cada mutación visual bumpa
+    `custom_version` + append a `custom_log` (`{v, at, who, fields}`, máx. 20);
+    todos los clientes lo anuncian como **banner "Nueva personalización vN"**
+    (`#custom-update-banner`) al cargar y en cada poll de notificaciones
+    (`refreshAppSettings` diffing por JSON → los cambios del CEO se aplican a
+    todas las cuentas abiertas sin reiniciar).
+  - **Menos hardcodes**: firma de WhatsApp (`QuoteDetail`), catálogo de servicios,
+    notificación de prueba de Ajustes y correos de recuperación de contraseña
+    (`auth.ts`) usan el nombre configurado; helper `readCompany()` en
+    `src/renderer/api.ts`.
+  - **Probes**: `verify-b29` nuevo (42 checks: guard 401/401/403, validaciones de
+    etiquetas/sufijo/icono, bump+log, grant/revoke de permiso server y UI,
+    renombrado e2e con banner y sidebar) → **42/42 verde**; `verify-b27/b28`
+    actualizados con `x-user-id` + login previo a la fase API; `verify-b13`
+    acepta la columna PERSONALIZAR en la cabecera del modal.
+
+### Fixed
+- `parseLabelsInput` acepta strings vacíos como reset del nombre original (el
+  input de renombrar puede limpiarse sin 400).
+- Narrowing de la unión `Authz` con `strict:false` resuelto con cast explícito.
+
+### Changed
+- E2E completa sobre la app instalada: **b29 42/42, b28 27/27, b27 38/38,
+  settings-new 24/24, b13 78/78, b25 40/40, b25-server + c/d/b2/v5 exit0**
+  (249 checks verdes).
+- Empaquetado vía `electron-builder --dir` + robocopy (NSIS sigue bloqueado por
+  `spawn UNKNOWN`/AppLocker en `wine`, comportamiento conocido).
+
 ## [1.0.0-build28] - 2026-10-03
 
 ### Added

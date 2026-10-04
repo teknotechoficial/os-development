@@ -849,3 +849,77 @@ pm run build NO reempaqueta el asar** - despues de cambios hay que correr
   del servicio - cluster temporal en 5433 inutil con 0xC0000142).
 - **Credenciales roles ON** (convencion build27): GTE001/VEN001 `clave123`/pin `1234`.
 - Cierre: DELETE login_attempts + kill procesos + restantes=0 + server DOWN.
+
+---
+
+## build29 (2026-10-03) - Personalizacion global: permiso CEO, etiquetas, sufijo, icono, versionado
+
+### Agregado build29 (1er build de la saga "TODO 100% configurable" - plan aprobado en 3 builds: 29 fundacion+permiso, 30 temas nuevos, 31 bloques de pantallas)
+- **Guard server-side `authorizeCustomization(req)`** (settings.ts): PUT /api/settings y
+  POST /test-mail exigen header `x-user-id` -> users (name, role, is_active,
+  can_customize_ui); 401 sin identidad/usuario invalido, 403 si no es super_admin ni
+  can_customize_ui. ANTES cualquier cliente mutaba settings sin auth.
+- **Permiso `users.can_customize_ui`** (migracion x3: schema.ts, server/db.ts; NO esta en
+  src/main/database.ts - server/db.ts aplica todo al arrancar): toggle "Permitido/No
+  permitido" en modal Gestionar equipo (columna PERSONALIZAR despues de SECTOR, solo
+  super_admin), updateMember acepta boolean, PUT /api/team/:id {canCustomizeUi} guarda el
+  CEO por x-user-id (401/403). `safeUser` (SELECT *) ya traia el campo al login.
+- **Ruta/sidebar abren con el permiso**: ProtectedRoute NUEVA prop `allowCustomize` en
+  /configuracion (si no, "ACCESO RESTRINGIDO"); AppLayout `canSee` muestra Ajustes con
+  `user.canCustomizeUi` (antes solo roles.includes).
+- **Renombrar menus** (settings.sidebar_labels TEXT DEFAULT '{}'): input por fila en
+  Ajustes>Sistema `#settings-nav-label-<path con _ >` (placeholder = nombre original,
+  maxLength 40, vacio = reset); server parseLabelsInput valida rutas NAV_PATHS conocidas
+  y trata '' como reset (fix tras 1er intento); AppLayout renderNavItem usa
+  `sidebarLabels[path] || label` en texto Y aria-labels.
+- **Identidad de la app** (card nueva "Identidad de la aplicacion" en Sistema):
+  sufijo `app_title_suffix` (default 'Cotizador', max 40) -> titulo ventana
+  (`applyWindowTitle` + handleSave) y asunto de mails (auth.ts appName, test-mail);
+  icono `app_icon` dataURL (<=400000 chars, regex data:image/(png|jpe?g|webp|gif|svg)),
+  input file id `settings-app-icon` + clear `settings-app-icon-clear` + preview, IPC
+  **`set-app-icon`** (nativeImage.createFromDataURL -> BrowserWindow.setIcon, fallback
+  assets/logo-icon.ico) via preload `setAppIcon`, aplicado al arrancar (index.ts) y en
+  runtime (AppLayout effect); badge version `#settings-custom-version` vN.
+- **Versionado**: PUT con campo visual (companyName, companyLogo, theme, sidebarOrder,
+  sidebarHidden, sidebarLabels, loginTagline, appIcon, appTitleSuffix) bumpa
+  `custom_version`+1 y append `custom_log` [{v, at, who, fields}] (slice 20); GET / y
+  /public lo exponen (customLog solo en GET /). AppLayout: `refreshAppSettings()` (useCallback,
+  diff por JSON.stringify para no re-render) se llama en mount Y en el poll de notifs ->
+  los cambios llegan a todas las cuentas abiertas en ~15s; banner `#custom-update-banner`
+  "Nueva personalizacion vN aplicada" 6s si version > localStorage `nt_custom_version`.
+- **Hardcodes**: readCompany() en api.ts (cache nt_pub_settings.name) usado por
+  QuoteDetail (firma WhatsApp), Services (catalogo); Settings Notification usa
+  settings.companyName; auth.ts recovery mail usa company_name + app_title_suffix.
+- **NAV_LABELS** movido a @/shared/constants (Settings ya no lo define local).
+
+### E2E build29 (249 verdes + probes exit0)
+- b29 NUEVO **42/42** (guard 401/401/403, labels/sufijo/icono validaciones+200,
+  bump+log con who=Sebastian, grant/revoke server+UI con login VEN001, renombrado e2e,
+  banner tras reload, restauracion) - b28 27/27 (era 26, +check 0.1) - b27 38/38 (era 37) -
+  settings-new 24/24 - b13 78/78 - b25 40/40 - b25-server exit0 - c/d/b2/v5 exit0.
+- tsc (ambos configs) exit0; vite exit0; NSIS `spawn UNKNOWN` (wine/AppLocker, conocido)
+  -> `npx electron-builder --dir` exit0 + robocopy /MIR (exit 1/3 = ok);
+  ASAR 40,898,588 @ 22:27 en instalado; app CDP 9222; PG servicio OK.
+
+### Gotchas build29
+- **`strict:false` en tsconfig NO hace narrowing boolean de uniones discriminantes**
+  (`if (!auth.ok) auth.status` -> TS2339). Fix: cast `auth as {ok:false;status;error}`.
+- **`npm run build` (npm) se cuelga a veces >10min sin output** -> correr por partes:
+  `npm run build:main` y `npx vite build` directo (vite ~2min normal).
+- **electron-builder --win nsis** falla `spawn UNKNOWN` en execWine (AppLocker) ->
+  `npx electron-builder --dir` solo empaqueta win-unpacked (lo que interesa) y despues
+  robocopy. OJO: despues de cambiar main hay que re-correr --dir (el robocopy copia
+  win-unpacked, NO dist/).
+- **Probes con PUT /api/settings ahora necesitan sesion**: b27/b28 - helper `api()`
+  inyecta `x-user-id` desde localStorage.nova-auth; b27/b28 login CEO ANTES de la fase API
+  (b28 fase API estaba pre-login -> 401); b28 restaura -> requiere login + logout post-PUT
+  para validar pantalla de acceso. b13 6.7: cabeceras aceptan PERSONALIZAR en ths[3].
+- b29 fase B (PUT del vendedor con sidebarLabels {}) resetea labels -> fase C debe
+  reponer el label de prueba antes de checkear el input.
+- **Re-migraciones**: server/db.ts `queries` (lineas 51-75) ya incluye los 5 ALTERs de
+  settings build29 + migrations incluye can_customize_ui; se ejecutan en cada arranque.
+
+### Pendiente build30/31 (plan aprobado)
+- build30: editor de temas nuevos (crear/editar/custom themes en Ajustes).
+- build31: sistema de bloques de pantallas (mover bloques, editar textos/funciones/
+  animaciones - Dashboard 5 bloques, Reports 7 secciones, etc.).

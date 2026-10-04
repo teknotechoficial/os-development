@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	AlertCircle,
+	AppWindow,
 	ArrowDown,
 	ArrowUp,
 	Bell,
@@ -24,7 +25,7 @@ import {
 import { useAuth } from '@/renderer/store/auth';
 import { useTeam } from '@/renderer/store/team';
 import { apiUrl } from '@/renderer/api';
-import { COMPANY, MINIMUM_MARGIN, ROLE_LABELS } from '@/shared/constants';
+import { COMPANY, MINIMUM_MARGIN, NAV_LABELS, ROLE_LABELS } from '@/shared/constants';
 import { Button, Card, PageHeader, Skeleton, Spinner } from '@/renderer/components/ui';
 import ProfileModal from '@/renderer/components/ProfileModal';
 import AccessLogCard from '@/renderer/components/settings/AccessLogCard';
@@ -68,6 +69,10 @@ interface SettingsData {
 	theme: string;
 	sidebarOrder: string[];
 	sidebarHidden: string[];
+	sidebarLabels: Record<string, string>;
+	appIcon: string;
+	appTitleSuffix: string;
+	customVersion: number;
 	loginTagline: string;
 }
 
@@ -94,6 +99,10 @@ const DEFAULT_SETTINGS: SettingsData = {
 	theme: 'dark',
 	sidebarOrder: [],
 	sidebarHidden: [],
+	sidebarLabels: {},
+	appIcon: '',
+	appTitleSuffix: 'Cotizador',
+	customVersion: 1,
 	loginTagline: 'Tecnología que impulsa,|lealtad que permanece.',
 };
 
@@ -102,18 +111,6 @@ const THEME_OPTIONS = [
 	{ value: 'midnight', label: 'Medianoche', swatch: ['#030A18', '#0A1A30', '#1877E8'] },
 	{ value: 'steel', label: 'Acero', swatch: ['#141A24', '#1C2431', '#60A5FA'] },
 	{ value: 'ocean', label: 'Océano', swatch: ['#062040', '#0C2E56', '#38BDF8'] },
-];
-
-const NAV_LABELS: { path: string; label: string }[] = [
-	{ path: '/dashboard', label: 'Inicio' },
-	{ path: '/reportes', label: 'Reportes' },
-	{ path: '/cotizaciones', label: 'Cotizaciones' },
-	{ path: '/nueva-cotizacion', label: 'Nueva Cotización' },
-	{ path: '/servicios', label: 'Servicios' },
-	{ path: '/equipo', label: 'Equipo' },
-	{ path: '/historial', label: 'Historial' },
-	{ path: '/mi-trabajo', label: 'Mi Trabajo' },
-	{ path: '/configuracion', label: 'Ajustes' },
 ];
 
 const CURRENCY_OPTIONS = [
@@ -325,6 +322,23 @@ const mergeSettings = (prev: SettingsData, data: Record<string, any>): SettingsD
 		: prev.sidebarHidden,
 	loginTagline:
 		typeof data.loginTagline === 'string' ? data.loginTagline : prev.loginTagline,
+	sidebarLabels: (() => {
+		if (!data.sidebarLabels || typeof data.sidebarLabels !== 'object' || Array.isArray(data.sidebarLabels)) {
+			return prev.sidebarLabels;
+		}
+		const labels: Record<string, string> = {};
+		for (const [key, value] of Object.entries(data.sidebarLabels as Record<string, unknown>)) {
+			if (typeof value === 'string' && value.trim()) labels[key] = value.trim().slice(0, 40);
+		}
+		return labels;
+	})(),
+	appIcon: typeof data.appIcon === 'string' ? data.appIcon : prev.appIcon,
+	appTitleSuffix:
+		typeof data.appTitleSuffix === 'string' ? data.appTitleSuffix : prev.appTitleSuffix,
+	customVersion:
+		typeof data.customVersion === 'number' && data.customVersion >= 1
+			? data.customVersion
+			: prev.customVersion,
 });
 
 interface FieldProps {
@@ -436,7 +450,7 @@ const Settings: React.FC = () => {
 	const { user } = useAuth();
 	const { users, fetchTeam } = useTeam();
 	const role = user?.role;
-	const canManage = role === 'super_admin';
+	const canManage = role === 'super_admin' || user?.canCustomizeUi === true;
 
 	const me = user ? users.find((u) => u.id === user.id) : undefined;
 	const avatarUrl = me?.avatar ?? user?.avatar ?? null;
@@ -474,6 +488,32 @@ const Settings: React.FC = () => {
 
 	const logoFileRef = useRef<HTMLInputElement>(null);
 	const [logoError, setLogoError] = useState<string | null>(null);
+
+	const iconFileRef = useRef<HTMLInputElement>(null);
+	const [iconError, setIconError] = useState<string | null>(null);
+
+	const handleIconFile = (file: File) => {
+		setIconError(null);
+		if (!/^image\//.test(file.type)) {
+			setIconError('Formato no válido: usá PNG, JPG, WEBP o ICO');
+			return;
+		}
+		if (file.size > 300000) {
+			setIconError('El icono debe pesar menos de 300 KB');
+			return;
+		}
+		const reader = new FileReader();
+		reader.onload = () => {
+			const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+			if (!dataUrl.startsWith('data:image/') || dataUrl.length > 400000) {
+				setIconError('El icono es demasiado grande');
+				return;
+			}
+			setAnyField('appIcon', dataUrl);
+		};
+		reader.onerror = () => setIconError('No se pudo leer el archivo');
+		reader.readAsDataURL(file);
+	};
 
 	type TeamDraft = { name: string; title: string; role: string };
 	const [teamDrafts, setTeamDrafts] = useState<Record<string, TeamDraft>>({});
@@ -581,7 +621,7 @@ const Settings: React.FC = () => {
 			}
 			const response = await fetch(apiUrl('/api/settings'), {
 				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id ?? '' },
 				body: JSON.stringify(payload),
 			});
 			const data = await response.json().catch(() => ({}));
@@ -602,11 +642,14 @@ const Settings: React.FC = () => {
 			} catch {
 				/* localStorage no disponible */
 			}
-			/* window title follows the program name */
+			/* window title follows the program name + configured suffix */
 			try {
 				const api = (window as Window & { electronAPI?: { setWindowTitle?: (t: string) => Promise<unknown> } }).electronAPI;
 				if (api && typeof api.setWindowTitle === 'function' && settings.companyName.trim()) {
-					void api.setWindowTitle(`${settings.companyName.trim()} Cotizador`);
+					const suffix = settings.appTitleSuffix.trim();
+					void api.setWindowTitle(
+						suffix ? `${settings.companyName.trim()} ${suffix}` : settings.companyName.trim(),
+					);
 				}
 			} catch {
 				/* sin Electron: título nativo sin actualizar */
@@ -650,7 +693,7 @@ const Settings: React.FC = () => {
 		try {
 			const response = await fetch(apiUrl('/api/settings/test-mail'), {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id ?? '' },
 			});
 			const data = await response.json().catch(() => ({}));
 			if (!response.ok || data.error || data.success === false) {
@@ -932,7 +975,7 @@ const Settings: React.FC = () => {
 	const handleTestNotification = () => {
 		setNotifyError(null);
 		try {
-			new Notification('TeknoTech Services', {
+			new Notification(settings.companyName.trim() || 'TeknoTech Services', {
 				body: 'Alerta de prueba. Todo funciona correctamente.',
 			});
 		} catch {
@@ -1893,71 +1936,173 @@ const Settings: React.FC = () => {
 									</div>
 								</div>
 								<ul className="space-y-1.5" id="settings-sidebar-list">
-									{navOrderList.map((path, index) => {
-										const meta = NAV_LABELS.find((item) => item.path === path);
-										if (!meta) return null;
-										const hidden = settings.sidebarHidden.includes(path);
-										return (
-											<li
-												key={path}
-												data-path={path}
-												className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+								{navOrderList.map((path, index) => {
+									const meta = NAV_LABELS.find((item) => item.path === path);
+									if (!meta) return null;
+									const hidden = settings.sidebarHidden.includes(path);
+									const customLabel = (settings.sidebarLabels[path] || '').trim();
+									const displayLabel = customLabel || meta.label;
+									return (
+										<li
+											key={path}
+											data-path={path}
+											className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+												hidden
+													? 'border-[#1C3557] bg-[#0C1E36]/60 opacity-60'
+													: 'border-[#1C3557] bg-[#0C1E36]'
+											}`}
+										>
+											<span className="text-[10px] text-[#5B7295] w-5 text-center">
+												{index + 1}
+											</span>
+											<input
+												type="text"
+												id={`settings-nav-label-${path.replace(/\//g, '_')}`}
+												aria-label={`Renombrar ${displayLabel}`}
+												maxLength={40}
+												placeholder={meta.label}
+												value={customLabel}
+												onChange={(e) =>
+													setAnyField('sidebarLabels', {
+														...settings.sidebarLabels,
+														[path]: e.target.value,
+													})
+												}
+												className={`flex-1 min-w-0 bg-transparent border-0 border-b border-dashed border-transparent focus:border-[#1877E8] focus:outline-none text-sm px-1 py-0.5 rounded ${
+													hidden ? 'text-[#5B7295] line-through' : 'text-white'
+												}`}
+											/>
+											<button
+												type="button"
+												aria-label={`Subir ${displayLabel}`}
+												disabled={index === 0}
+												onClick={() => moveNav(path, -1)}
+												className="p-1.5 rounded-lg text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+											>
+												<ArrowUp className="w-3.5 h-3.5" />
+											</button>
+											<button
+												type="button"
+												aria-label={`Bajar ${displayLabel}`}
+												disabled={index === navOrderList.length - 1}
+												onClick={() => moveNav(path, 1)}
+												className="p-1.5 rounded-lg text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+											>
+												<ArrowDown className="w-3.5 h-3.5" />
+											</button>
+											<button
+												type="button"
+												id={`settings-nav-${path.replace(/\//g, '_')}`}
+												aria-pressed={!hidden}
+												aria-label={`Mostrar u ocultar ${displayLabel}`}
+												onClick={() => toggleNavHidden(path)}
+												className={`p-1.5 rounded-lg transition-colors ${
 													hidden
-														? 'border-[#1C3557] bg-[#0C1E36]/60 opacity-60'
-														: 'border-[#1C3557] bg-[#0C1E36]'
+														? 'text-[#E11D48] hover:bg-[#E11D48]/15'
+														: 'text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15'
 												}`}
 											>
-												<span className="text-[10px] text-[#5B7295] w-5 text-center">
-													{index + 1}
-												</span>
-												<span
-													className={`flex-1 text-sm ${
-														hidden ? 'text-[#5B7295] line-through' : 'text-white'
-													}`}
-												>
-													{meta.label}
-												</span>
-												<button
-													type="button"
-													aria-label={`Subir ${meta.label}`}
-													disabled={index === 0}
-													onClick={() => moveNav(path, -1)}
-													className="p-1.5 rounded-lg text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-												>
-													<ArrowUp className="w-3.5 h-3.5" />
-												</button>
-												<button
-													type="button"
-													aria-label={`Bajar ${meta.label}`}
-													disabled={index === navOrderList.length - 1}
-													onClick={() => moveNav(path, 1)}
-													className="p-1.5 rounded-lg text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-												>
-													<ArrowDown className="w-3.5 h-3.5" />
-												</button>
-												<button
-													type="button"
-													id={`settings-nav-${path.replace(/\//g, '_')}`}
-													aria-pressed={!hidden}
-													aria-label={`Mostrar u ocultar ${meta.label}`}
-													onClick={() => toggleNavHidden(path)}
-													className={`p-1.5 rounded-lg transition-colors ${
-														hidden
-															? 'text-[#E11D48] hover:bg-[#E11D48]/15'
-															: 'text-[#8FA6C4] hover:text-white hover:bg-[#1877E8]/15'
-													}`}
-												>
-													{hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-												</button>
-											</li>
-										);
-									})}
-								</ul>
-								<p className="text-xs text-[#5B7295] mt-3">
-									El orden aplica para todos los perfiles; los elementos ocultos dejan de
-									mostrarse hasta que los vuelvas a activar.
-								</p>
-							</Card>
+												{hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+											</button>
+										</li>
+									);
+								})}
+							</ul>
+							<p className="text-xs text-[#5B7295] mt-3">
+								Ordená, ocultá y renombrá cada entrada: se escribe un nombre para
+								renombrarlo (vacío = nombre original). Aplica para todos los perfiles.
+							</p>
+						</Card>
+
+						<Card className={`p-6 ${CARD_CLASS}`}>
+							<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+								<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+									<AppWindow className="w-4 h-4" />
+								</span>
+								<div className="flex-1">
+									<h2 className={SECTION_TITLE}>Identidad de la aplicación</h2>
+									<p className="text-xs text-[#5B7295]">
+										Título de la ventana, icono y versión de personalización
+									</p>
+								</div>
+								<span
+									id="settings-custom-version"
+									className="text-[10px] uppercase tracking-[0.1em] font-semibold px-2.5 py-1 rounded-lg bg-[#1877E8]/15 border border-[#1877E8]/30 text-[#60A5FA]"
+								>
+									v{settings.customVersion}
+								</span>
+							</div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div>
+									<label htmlFor="settings-title-suffix" className={LABEL_CLASS}>
+										Sufijo del título
+									</label>
+									<input
+										id="settings-title-suffix"
+										type="text"
+										maxLength={40}
+										value={settings.appTitleSuffix}
+										onChange={(e) => setField('appTitleSuffix', e.target.value)}
+										className={INPUT_CLASS}
+										placeholder="Cotizador"
+									/>
+									<p className="text-xs text-[#5B7295] mt-1.5">
+										Ventana: {settings.companyName.trim() || '—'}
+										{settings.appTitleSuffix.trim() ? ` ${settings.appTitleSuffix.trim()}` : ''}
+									</p>
+								</div>
+								<div>
+									<span className={LABEL_CLASS}>Icono de la aplicación</span>
+									<div className="flex items-center gap-3">
+										<span className="w-10 h-10 rounded-xl border border-[#1C3557] bg-[#0C1E36] overflow-hidden flex items-center justify-center shrink-0">
+											{settings.appIcon ? (
+												<img src={settings.appIcon} alt="" className="w-full h-full object-contain" />
+											) : (
+												<AppWindow className="w-4 h-4 text-[#5B7295]" />
+											)}
+										</span>
+										<button
+											type="button"
+											id="settings-app-icon"
+											onClick={() => iconFileRef.current?.click()}
+											className="px-3 py-2 rounded-xl border border-[#1C3557] bg-[#0C1E36] text-xs text-[#8FA6C4] hover:text-white hover:border-[#1877E8]/60 transition-colors"
+										>
+											Subir icono
+										</button>
+										{settings.appIcon ? (
+											<button
+												type="button"
+												id="settings-app-icon-clear"
+												onClick={() => setAnyField('appIcon', '')}
+												className="px-3 py-2 rounded-xl border border-[#E11D48]/40 bg-[#E11D48]/10 text-xs text-[#FB7185] hover:bg-[#E11D48]/20 transition-colors"
+											>
+												Quitar
+											</button>
+										) : null}
+										<input
+											ref={iconFileRef}
+											type="file"
+											accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon"
+											className="hidden"
+											onChange={(e) => {
+												const file = e.target.files && e.target.files[0];
+												if (file) handleIconFile(file);
+												e.target.value = '';
+											}}
+										/>
+									</div>
+									{iconError ? <p className="text-xs text-[#FB7185] mt-1.5">{iconError}</p> : null}
+									<p className="text-xs text-[#5B7295] mt-1.5">
+										PNG, JPG, WEBP o ICO (máx. 300 KB). Aplica a la ventana y al menú de tareas.
+									</p>
+								</div>
+							</div>
+							<p className="text-xs text-[#5B7295] mt-4 pt-3 border-t border-[#16294A]">
+								Cada guardado genera una versión de personalización (v{settings.customVersion}
+								{' '}&rarr; v{settings.customVersion + 1}) y se notifica como nueva
+								actualización en todas las cuentas abiertas.
+							</p>
+						</Card>
 
 							<Card className={`p-6 ${CARD_CLASS}`}>
 								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">

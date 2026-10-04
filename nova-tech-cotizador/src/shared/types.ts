@@ -11,6 +11,7 @@ export interface User {
 	phone?: string | null;
 	bio?: string | null;
 	hasCredentials?: boolean;
+	canCustomizeUi?: boolean;
 }
 
 export interface Quote {

@@ -215,13 +215,13 @@ const TeamManager: React.FC = () => {
 	const [manageBusy, setManageBusy] = useState<Record<string, boolean>>({});
 	const [manageErrors, setManageErrors] = useState<Record<string, string>>({});
 
-	const updateMember = async (memberId: string, patch: Record<string, string>) => {
+	const updateMember = async (memberId: string, patch: Record<string, string | boolean>) => {
 		setManageBusy((prev) => ({ ...prev, [memberId]: true }));
 		setManageErrors((prev) => ({ ...prev, [memberId]: '' }));
 		try {
 			const response = await fetch(apiUrl(`/api/team/${memberId}`), {
 				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id ?? '' },
 				body: JSON.stringify(patch),
 			});
 			const data = await response.json().catch(() => ({}));
@@ -788,6 +788,9 @@ const TeamManager: React.FC = () => {
 											<th className="text-left font-medium pb-3 pr-4">MIEMBRO</th>
 											<th className="text-left font-medium pb-3 pr-4">CÓDIGO</th>
 											<th className="text-left font-medium pb-3 pr-4">SECTOR</th>
+											{user?.role === 'super_admin' ? (
+												<th className="text-left font-medium pb-3 pr-4">PERSONALIZAR</th>
+											) : null}
 											<th className="text-left font-medium pb-3">ACCIONES</th>
 										</tr>
 									</thead>
@@ -842,6 +845,34 @@ const TeamManager: React.FC = () => {
 															<p className="text-xs text-[#FB7185] mt-1">{rowError}</p>
 														)}
 													</td>
+													{user?.role === 'super_admin' ? (
+														<td className="py-3 pr-4">
+															<button
+																type="button"
+																id={`team-customize-${member.code}`}
+																aria-pressed={member.canCustomizeUi === true}
+																aria-label={`Permiso de personalización de ${member.name}`}
+																disabled={isSaving || member.role === 'super_admin'}
+																title={
+																	member.role === 'super_admin'
+																		? 'El CEO siempre tiene permiso'
+																		: 'Permitir personalizar la interfaz (Ajustes completo)'
+																}
+																onClick={() =>
+																	updateMember(member.id, {
+																		canCustomizeUi: !(member.canCustomizeUi === true),
+																	})
+																}
+																className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50 ${
+																	member.canCustomizeUi === true
+																		? 'bg-[#22C55E]/15 border-[#22C55E]/40 text-[#4ADE80] hover:bg-[#22C55E]/25'
+																		: 'bg-[#0C1E36] border-[#1C3557] text-[#8FA6C4] hover:text-white hover:border-[#1877E8]/60'
+																}`}
+															>
+																{member.canCustomizeUi === true ? 'Permitido' : 'No permitido'}
+															</button>
+														</td>
+													) : null}
 													<td className="py-3">
 														<div className="flex items-center gap-2">
 															<Button

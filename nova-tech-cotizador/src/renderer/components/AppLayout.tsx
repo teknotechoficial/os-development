@@ -76,6 +76,10 @@ type AppSettings = {
   theme: string;
   sidebarOrder: string[];
   sidebarHidden: string[];
+  sidebarLabels: Record<string, string>;
+  appIcon: string;
+  appTitleSuffix: string;
+  customVersion: number;
 };
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -86,6 +90,10 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: 'dark',
   sidebarOrder: [],
   sidebarHidden: [],
+  sidebarLabels: {},
+  appIcon: '',
+  appTitleSuffix: 'Cotizador',
+  customVersion: 1,
 };
 
 const notifKey = (n: any): string => {
@@ -163,58 +171,131 @@ const AppLayout: React.FC = () => {
   const userId = user?.id;
 
   const [appSettings, setAppSettings] = React.useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [customBanner, setCustomBanner] = React.useState<string | null>(null);
+
+  const refreshAppSettings = React.useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl('/api/settings/public'));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || typeof data !== 'object') return;
+      const companyName =
+        typeof data.companyName === 'string' && data.companyName.trim()
+          ? data.companyName.trim().slice(0, 80)
+          : DEFAULT_APP_SETTINGS.companyName;
+      const currency =
+        typeof data.currency === 'string' && data.currency ? data.currency : DEFAULT_APP_SETTINGS.currency;
+      const rawInterval = Number(data.notifInterval);
+      const notifInterval =
+        Number.isFinite(rawInterval) && rawInterval >= 5
+          ? Math.round(rawInterval)
+          : DEFAULT_APP_SETTINGS.notifInterval;
+      const companyLogo =
+        typeof data.companyLogo === 'string' && data.companyLogo
+          ? data.companyLogo.slice(0, 300000)
+          : '';
+      const theme =
+        typeof data.theme === 'string' && data.theme ? data.theme : DEFAULT_APP_SETTINGS.theme;
+      const sidebarOrder = Array.isArray(data.sidebarOrder)
+        ? data.sidebarOrder.filter((x: unknown): x is string => typeof x === 'string')
+        : [];
+      const sidebarHidden = Array.isArray(data.sidebarHidden)
+        ? data.sidebarHidden.filter((x: unknown): x is string => typeof x === 'string')
+        : [];
+      const sidebarLabels: Record<string, string> = {};
+      if (data.sidebarLabels && typeof data.sidebarLabels === 'object' && !Array.isArray(data.sidebarLabels)) {
+        for (const [k, v] of Object.entries(data.sidebarLabels as Record<string, unknown>)) {
+          if (typeof v === 'string' && v.trim()) sidebarLabels[k] = v.trim().slice(0, 40);
+        }
+      }
+      const appIcon =
+        typeof data.appIcon === 'string' && data.appIcon ? data.appIcon.slice(0, 400000) : '';
+      const appTitleSuffix =
+        typeof data.appTitleSuffix === 'string' ? data.appTitleSuffix.slice(0, 40) : 'Cotizador';
+      const rawVersion = Number(data.customVersion);
+      const customVersion = Number.isFinite(rawVersion) && rawVersion >= 1 ? Math.round(rawVersion) : 1;
+      document.documentElement.dataset.theme = theme;
+      setAppSettings((prev) => {
+        const next: AppSettings = {
+          companyName,
+          currency,
+          notifInterval,
+          companyLogo,
+          theme,
+          sidebarOrder,
+          sidebarHidden,
+          sidebarLabels,
+          appIcon,
+          appTitleSuffix,
+          customVersion,
+        };
+        return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+      });
+      try {
+        const raw = window.localStorage.getItem('nt_prefs');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const base = parsed && typeof parsed === 'object' ? parsed : {};
+        if (base.currency !== currency) {
+          window.localStorage.setItem('nt_prefs', JSON.stringify({ ...base, currency }));
+        }
+      } catch {
+        /* localStorage no disponible */
+      }
+      return customVersion;
+    } catch {
+      /* sin conexión: se conservan los valores por defecto */
+      return undefined;
+    }
+  }, []);
 
   React.useEffect(() => {
     let active = true;
-    (async () => {
-      try {
-        const res = await fetch(apiUrl('/api/settings/public'));
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!active || !data || typeof data !== 'object') return;
-        const companyName =
-          typeof data.companyName === 'string' && data.companyName.trim()
-            ? data.companyName.trim().slice(0, 80)
-            : DEFAULT_APP_SETTINGS.companyName;
-        const currency =
-          typeof data.currency === 'string' && data.currency ? data.currency : DEFAULT_APP_SETTINGS.currency;
-        const rawInterval = Number(data.notifInterval);
-        const notifInterval =
-          Number.isFinite(rawInterval) && rawInterval >= 5
-            ? Math.round(rawInterval)
-            : DEFAULT_APP_SETTINGS.notifInterval;
-        const companyLogo =
-          typeof data.companyLogo === 'string' && data.companyLogo
-            ? data.companyLogo.slice(0, 300000)
-            : '';
-        const theme =
-          typeof data.theme === 'string' && data.theme ? data.theme : DEFAULT_APP_SETTINGS.theme;
-        const sidebarOrder = Array.isArray(data.sidebarOrder)
-          ? data.sidebarOrder.filter((x: unknown): x is string => typeof x === 'string')
-          : [];
-        const sidebarHidden = Array.isArray(data.sidebarHidden)
-          ? data.sidebarHidden.filter((x: unknown): x is string => typeof x === 'string')
-          : [];
-        document.documentElement.dataset.theme = theme;
-        setAppSettings({ companyName, currency, notifInterval, companyLogo, theme, sidebarOrder, sidebarHidden });
-        try {
-          const raw = window.localStorage.getItem('nt_prefs');
-          const parsed = raw ? JSON.parse(raw) : null;
-          const base = parsed && typeof parsed === 'object' ? parsed : {};
-          if (base.currency !== currency) {
-            window.localStorage.setItem('nt_prefs', JSON.stringify({ ...base, currency }));
-          }
-        } catch {
-          /* localStorage no disponible */
-        }
-      } catch {
-        /* sin conexión: se conservan los valores por defecto */
-      }
+    void (async () => {
+      const version = await refreshAppSettings();
+      if (!active || version === undefined) return;
+      announceCustomVersion(version);
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshAppSettings]);
+
+  const announceCustomVersion = (version: number) => {
+    try {
+      const raw = window.localStorage.getItem('nt_custom_version');
+      const last = raw === null ? 0 : Number(raw);
+      window.localStorage.setItem('nt_custom_version', String(version));
+      if (Number.isFinite(last) && last > 0 && version > last) {
+        setCustomBanner(`Nueva personalización v${version} aplicada`);
+        window.setTimeout(() => setCustomBanner(null), 6000);
+      }
+    } catch {
+      /* localStorage no disponible */
+    }
+  };
+
+  /* window icon + favicon follow the customizable app icon */
+  React.useEffect(() => {
+    try {
+      const api = (window as Window & { electronAPI?: { setAppIcon?: (icon: string | null) => Promise<unknown> } })
+        .electronAPI;
+      if (api && typeof api.setAppIcon === 'function') {
+        void api.setAppIcon(appSettings.appIcon || null);
+      }
+    } catch {
+      /* sin Electron */
+    }
+    try {
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (link) {
+        link.href = appSettings.appIcon || (link.dataset.default || link.href);
+        if (!link.dataset.default) link.dataset.default = link.getAttribute('href') || link.href;
+        if (appSettings.appIcon) link.href = appSettings.appIcon;
+      }
+    } catch {
+      /* sin document */
+    }
+  }, [appSettings.appIcon]);
 
   const { quotes, fetchMyQuotes } = useQuotes();
   const { users, fetchTeam } = useTeam();
@@ -263,7 +344,12 @@ const AppLayout: React.FC = () => {
     } finally {
       inFlightRef.current = false;
     }
-  }, [userId, appSettings.companyName]);
+    /* customization made by the CEO (or a permitted user) reaches every open
+       account on the next poll cycle as a live update */
+    void refreshAppSettings().then((version) => {
+      if (typeof version === 'number') announceCustomVersion(version);
+    });
+  }, [userId, appSettings.companyName, refreshAppSettings]);
 
   const pollIntervalMs = Math.max(5000, appSettings.notifInterval * 1000);
 
@@ -377,7 +463,13 @@ const AppLayout: React.FC = () => {
     navigate('/');
   };
 
-  const canSee = (item: NavItem) => !item.roles || (user && item.roles.includes(user.role));
+  const canSee = (item: NavItem) => {
+    if (!item.roles) return true;
+    if (!user) return false;
+    if (item.roles.includes(user.role)) return true;
+    /* the CEO-granted can_customize_ui permission also opens Ajustes */
+    return item.path === '/configuracion' && user.canCustomizeUi === true;
+  };
   const navPool: NavItem[] = [...NAV_ITEMS, ...NAV_EXTRA_ITEMS, AJUSTES_ITEM];
   const hiddenSet = new Set(appSettings.sidebarHidden);
   let orderedItems: NavItem[] = navPool;
@@ -395,6 +487,8 @@ const AppLayout: React.FC = () => {
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
+    const customLabel = appSettings.sidebarLabels[item.path];
+    const label = customLabel && customLabel.trim() ? customLabel : item.label;
     return (
       <NavLink
         key={item.path}
@@ -410,7 +504,7 @@ const AppLayout: React.FC = () => {
         <span className="shrink-0">
           <Icon size={24} />
         </span>
-        <span>{item.label}</span>
+        <span>{label}</span>
       </NavLink>
     );
   };
@@ -421,6 +515,16 @@ const AppLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A182E]">
+      {customBanner ? (
+        <div
+          id="custom-update-banner"
+          role="status"
+          className="fixed bottom-6 right-6 z-50 bg-[#10233E] border border-[#1877E8]/50 text-white text-sm px-5 py-3.5 rounded-2xl shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)] animate-fade-in-up flex items-center gap-3"
+        >
+          <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
+          {customBanner}
+        </div>
+      ) : null}
       <aside className="fixed left-0 top-0 h-screen w-72 bg-[#081426] border-r border-[#16294A] flex flex-col z-20">
         <div className="px-6 py-6 flex items-center gap-3.5 border-b border-[#16294A]/70">
           <div className="w-14 h-14 rounded-2xl bg-[#10233E] border border-[#1877E8]/30 p-1.5 flex items-center justify-center shrink-0 shadow-[0_6px_20px_rgba(0,0,0,0.4)]">

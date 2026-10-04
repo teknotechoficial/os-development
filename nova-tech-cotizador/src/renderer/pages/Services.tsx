@@ -26,7 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/renderer/store/auth';
-import { apiUrl } from '@/renderer/api';
+import { apiUrl, readCompany } from '@/renderer/api';
 import { formatCurrency } from '@/shared/validators';
 import { Button, Card, EmptyState, Spinner } from '@/renderer/components/ui';
 
@@ -367,9 +367,9 @@ const ServiceEditor: React.FC<{
 								{categoryLabel(form.category)}
 							</span>
 						</div>
-						<p className="text-xs text-[#5B7295] uppercase tracking-[0.15em] mt-1">
-							Catálogo de TeknoTech Services
-						</p>
+					<p className="text-xs text-[#5B7295] uppercase tracking-[0.15em] mt-1">
+						Catálogo de {readCompany()}
+					</p>
 					</div>
 					<button
 						type="button"

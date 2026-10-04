@@ -210,9 +210,13 @@ router.post('/auth/recover', async (req: any, res: any) => {
       return res.status(500).json({ error: 'No se pudo enviar el correo. Verificá la configuración SMTP.' });
     }
 
+    const appName =
+      (st.company_name || 'TeknoTech Services') +
+      (st.app_title_suffix ? ` ${st.app_title_suffix}` : '');
+
     const text =
       `Hola ${user.name},\n\n` +
-      'Recibimos una solicitud para recuperar tu contraseña en TeknoTech Services Cotizador.\n\n' +
+      `Recibimos una solicitud para recuperar tu contraseña en ${appName}.\n\n` +
       `Tu código de recuperación es: ${code}\n\n` +
       'El código tiene una validez de 15 minutos.\n\n' +
       'Si no solicitaste este código, ignorá este mensaje.';
@@ -222,7 +226,7 @@ router.post('/auth/recover', async (req: any, res: any) => {
       await transport.sendMail({
         from: mailFrom(smtp),
         to: user.email,
-        subject: 'Recuperación de contraseña - TeknoTech Services Cotizador',
+        subject: `Recuperación de contraseña - ${appName}`,
         text,
       });
     } catch (err) {

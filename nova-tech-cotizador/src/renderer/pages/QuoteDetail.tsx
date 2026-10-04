@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/renderer/store/auth';
 import { useQuotes } from '@/renderer/store/quotes';
+import { readCompany } from '@/renderer/api';
 import { useTeam } from '@/renderer/store/team';
 import { PRODUCT_NAMES, STATUS_LABELS } from '@/shared/constants';
 import type { QuoteItem } from '@/shared/types';
@@ -106,7 +107,7 @@ const QuoteDetail: React.FC = () => {
 	const handleWhatsApp = () => {
 		if (!quote) return;
 		const lines = [
-			'*TeknoTech Services*',
+			`*${readCompany()}*`,
 			`Cliente: ${quote.clientName}`,
 			`Producto: ${PRODUCT_NAMES[quote.productType] ?? quote.productType}`,
 			`Precio: ${formatCurrency(quote.finalPrice)}`,

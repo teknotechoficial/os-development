@@ -92,6 +92,11 @@ export async function initDatabase(): Promise<void> {
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_order TEXT DEFAULT '[]'`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_hidden TEXT DEFAULT '[]'`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS login_tagline TEXT DEFAULT 'Tecnología que impulsa,|lealtad que permanece.'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS sidebar_labels TEXT DEFAULT '{}'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS app_icon TEXT DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS app_title_suffix TEXT DEFAULT 'Cotizador'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_version INTEGER DEFAULT 1`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_log TEXT DEFAULT '[]'`,
   ];
 
   for (const query of queries) {
@@ -105,6 +110,7 @@ export async function initDatabase(): Promise<void> {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT DEFAULT ''`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT ''`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS can_customize_ui BOOLEAN DEFAULT false`,
     `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS items TEXT DEFAULT '[]'`,
     `UPDATE users SET password_hash = NULL WHERE password_hash = 'hashed'`,
     `UPDATE users SET has_credentials = false WHERE password_hash IS NULL AND pin_hash IS NULL`,

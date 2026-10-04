@@ -14,4 +14,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generatePDF: (quoteId: string) => ipcRenderer.invoke('generatePDF', quoteId),
   sendWhatsApp: (quoteId: string) => ipcRenderer.invoke('sendWhatsApp', quoteId),
   setWindowTitle: (title: string) => ipcRenderer.invoke('set-title', title),
+  setAppIcon: (icon: string | null) => ipcRenderer.invoke('set-app-icon', icon),
 });

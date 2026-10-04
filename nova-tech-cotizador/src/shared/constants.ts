@@ -44,6 +44,20 @@ export const STATUS_LABELS: Record<string, string> = {
   pagada: 'Pagada',
 };
 
+/* Canonical sidebar navigation (single source of truth for labels + order).
+   Displayed labels can be overridden per-installation via settings.sidebarLabels */
+export const NAV_LABELS: { path: string; label: string }[] = [
+  { path: '/dashboard', label: 'Inicio' },
+  { path: '/reportes', label: 'Reportes' },
+  { path: '/cotizaciones', label: 'Cotizaciones' },
+  { path: '/nueva-cotizacion', label: 'Nueva Cotización' },
+  { path: '/servicios', label: 'Servicios' },
+  { path: '/equipo', label: 'Equipo' },
+  { path: '/historial', label: 'Historial' },
+  { path: '/mi-trabajo', label: 'Mi Trabajo' },
+  { path: '/configuracion', label: 'Ajustes' },
+];
+
 export const ROLE_LABELS: Record<string, string> = {
   super_admin: 'CEO',
   gerente: 'Gerente General',

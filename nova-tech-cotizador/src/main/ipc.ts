@@ -1,4 +1,5 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, nativeImage, app } from 'electron';
+import { join } from 'path';
 import { getPool } from './database';
 import { calculateBasePrice, calculateFinalPrice } from '../shared/pricing';
 import { generateId } from '../shared/validators';
@@ -133,6 +134,23 @@ function registerHandlers() {
       BrowserWindow.getAllWindows().forEach((win) => win.setTitle(clean));
     }
     return true;
+  });
+
+  /* runtime window icon: CEO-uploaded dataUrl (or the packaged default) */
+  ipcMain.handle('set-app-icon', (_event, icon: unknown) => {
+    try {
+      const fallback = join(app.getAppPath(), 'assets', 'logo-icon.ico');
+      let image = nativeImage.createFromPath(fallback);
+      if (typeof icon === 'string' && icon.startsWith('data:image/')) {
+        const custom = nativeImage.createFromDataURL(icon);
+        if (!custom.isEmpty()) image = custom;
+      }
+      if (image.isEmpty()) return { error: 'Icono inválido' };
+      BrowserWindow.getAllWindows().forEach((win) => win.setIcon(image));
+      return { success: true };
+    } catch {
+      return { error: 'No se pudo aplicar el icono' };
+    }
   });
 }
 

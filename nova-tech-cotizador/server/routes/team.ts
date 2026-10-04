@@ -8,7 +8,7 @@ router.get('/', async (_req: any, res: any) => {
   const db = getPool();
   try {
     const u = await db.query(
-      'SELECT id, name, code, role, email, is_active, has_credentials, avatar, title, phone, bio, created_at FROM users ORDER BY role, name'
+      'SELECT id, name, code, role, email, is_active, has_credentials, avatar, title, phone, bio, can_customize_ui, created_at FROM users ORDER BY role, name'
     );
     res.json(mapRows(u.rows));
   } catch (err) {
@@ -39,10 +39,21 @@ const VALID_ROLES = ['super_admin', 'gerente', 'vendedor', 'closer', 'desarrolla
 
 	router.put('/:id', async (req: any, res: any) => {
   const db = getPool();
-	const { role, name, email, avatar, title, phone, bio, isActive } = req.body;
+	const { role, name, email, avatar, title, phone, bio, isActive, canCustomizeUi } = req.body;
 	try {
 		if (role !== undefined && !VALID_ROLES.includes(role)) {
 			return res.status(400).json({ error: 'Sector no válido' });
+		}
+		/* customization permission: only the CEO may grant or revoke it */
+		if (canCustomizeUi !== undefined) {
+			const actorId = req.headers['x-user-id'];
+			if (!actorId || typeof actorId !== 'string') {
+				return res.status(401).json({ error: 'Identidad no proporcionada' });
+			}
+			const actor = await db.query('SELECT role, is_active FROM users WHERE id = $1', [actorId]);
+			if (!actor.rows[0] || !actor.rows[0].is_active || actor.rows[0].role !== 'super_admin') {
+				return res.status(403).json({ error: 'Solo el CEO puede otorgar el permiso de personalización' });
+			}
 		}
 		const textFields: [string, any, number][] = [
 			['title', title, 80],
@@ -95,6 +106,10 @@ const VALID_ROLES = ['super_admin', 'gerente', 'vendedor', 'closer', 'desarrolla
 			values.push(bio === null ? null : bio.trim());
 			sets.push(`bio = $${values.length}`);
 		}
+		if (canCustomizeUi !== undefined && canCustomizeUi !== null) {
+			values.push(!!canCustomizeUi);
+			sets.push(`can_customize_ui = $${values.length}`);
+		}
 		if (isActive !== undefined && isActive !== null) {
 			const target = await db.query('SELECT role FROM users WHERE id = $1', [req.params.id]);
 			if (target.rows[0] && target.rows[0].role === 'super_admin' && !isActive) {
@@ -108,7 +123,7 @@ const VALID_ROLES = ['super_admin', 'gerente', 'vendedor', 'closer', 'desarrolla
 		}
 		values.push(req.params.id);
 		const r = await db.query(
-			`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, code, role, email, title, phone, bio, is_active`,
+			`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, code, role, email, title, phone, bio, is_active, can_customize_ui`,
 			values
 		);
     if (r.rowCount === 0) return res.status(400).json({ error: 'Usuario no encontrado.' });

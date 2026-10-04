@@ -24,3 +24,22 @@ export async function postJson(path: string, body?: unknown): Promise<any> {
 	}
 	return data;
 }
+
+/* CEO-configured display name cached at login / settings save (public branding) */
+export function readCompany(): string {
+	try {
+		const raw = window.localStorage.getItem('nt_pub_settings');
+		const parsed = raw ? JSON.parse(raw) : null;
+		if (
+			parsed &&
+			typeof parsed === 'object' &&
+			typeof parsed.name === 'string' &&
+			parsed.name.trim()
+		) {
+			return parsed.name.trim().slice(0, 80);
+		}
+	} catch {
+		/* localStorage no disponible */
+	}
+	return 'TeknoTech Services';
+}

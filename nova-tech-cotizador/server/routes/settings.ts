@@ -47,6 +47,68 @@ const parseNavJson = (raw: any): string[] => {
   }
 };
 
+/* Custom sidebar labels: { '/path': 'Label' } - known routes only */
+const parseLabelsJson = (raw: any): Record<string, string> => {
+  if (typeof raw !== 'string' || !raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (NAV_PATHS.includes(k) && typeof v === 'string' && v.trim() && v.length <= 40) {
+        out[k] = v.trim();
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+};
+
+const parseLabelsInput = (value: any): Record<string, string> | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > NAV_PATHS.length) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of entries) {
+    if (!NAV_PATHS.includes(k)) return null;
+    if (typeof v !== 'string') return null;
+    /* empty string = clear the custom label (falls back to the default) */
+    if (!v.trim()) continue;
+    if (v.length > 40) return null;
+    out[k] = v.trim();
+  }
+  return out;
+};
+
+const parseLogJson = (raw: any): any[] => {
+  if (typeof raw !== 'string' || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, 20) : [];
+  } catch {
+    return [];
+  }
+};
+
+/* Settings mutations require an identified active user with the CEO role or
+   the explicit can_customize_ui permission granted by the CEO */
+type Authz = { ok: true; actorId: string; actorName: string } | { ok: false; status: number; error: string };
+const authorizeCustomization = async (req: any): Promise<Authz> => {
+  const actorId = req.headers['x-user-id'];
+  if (!actorId || typeof actorId !== 'string') {
+    return { ok: false, status: 401, error: 'Identidad no proporcionada' };
+  }
+  const db = getPool();
+  const r = await db.query('SELECT name, role, is_active, can_customize_ui FROM users WHERE id = $1', [actorId]);
+  const u = r.rows[0];
+  if (!u || !u.is_active) return { ok: false, status: 401, error: 'Usuario no válido' };
+  if (u.role !== 'super_admin' && !u.can_customize_ui) {
+    return { ok: false, status: 403, error: 'Permisos insuficientes para personalizar la aplicación' };
+  }
+  return { ok: true, actorId, actorName: u.name || '' };
+};
+
 router.get('/', async (_req: any, res: any) => {
   const db = getPool();
   try {
@@ -55,6 +117,8 @@ router.get('/', async (_req: any, res: any) => {
     if (row) {
       row.sidebarOrder = parseNavJson((row as any).sidebarOrder);
       row.sidebarHidden = parseNavJson((row as any).sidebarHidden);
+      row.sidebarLabels = parseLabelsJson((row as any).sidebarLabels);
+      row.customLog = parseLogJson((row as any).customLog);
     }
     res.json(row);
   } catch (err) {
@@ -70,13 +134,15 @@ router.get('/public', async (_req: any, res: any) => {
     const s = await db.query(
       `SELECT company_name, company_logo, currency, notif_interval, margin_minimum,
               team_default_role, team_default_title, phone, email, payment_alias, payment_titular,
-              theme, sidebar_order, sidebar_hidden, login_tagline
+              theme, sidebar_order, sidebar_hidden, login_tagline, sidebar_labels, app_icon,
+              app_title_suffix, custom_version
        FROM settings WHERE id = 'app'`
     );
     const row = s.rows[0] ? toCamel(s.rows[0]) : null;
     if (row) {
       row.sidebarOrder = parseNavJson((row as any).sidebarOrder);
       row.sidebarHidden = parseNavJson((row as any).sidebarHidden);
+      row.sidebarLabels = parseLabelsJson((row as any).sidebarLabels);
     }
     res.json(row);
   } catch (err) {
@@ -85,6 +151,11 @@ router.get('/public', async (_req: any, res: any) => {
 });
 
 router.put('/', async (req: any, res: any) => {
+  const auth = await authorizeCustomization(req);
+  if (!auth.ok) {
+    const fail = auth as { ok: false; status: number; error: string };
+    return res.status(fail.status).json({ error: fail.error });
+  }
   const db = getPool();
   const {
     companyName,
@@ -111,6 +182,9 @@ router.put('/', async (req: any, res: any) => {
     sidebarOrder,
     sidebarHidden,
     loginTagline,
+    sidebarLabels,
+    appIcon,
+    appTitleSuffix,
   } = req.body || {};
   const marginValue = marginMinimum !== undefined ? marginMinimum : margin;
   try {
@@ -186,6 +260,62 @@ router.put('/', async (req: any, res: any) => {
       }
       taglineValue = loginTagline;
     }
+    let sidebarLabelsValue: string | null = null;
+    if (sidebarLabels !== undefined && sidebarLabels !== null) {
+      const obj = parseLabelsInput(sidebarLabels);
+      if (obj === null) {
+        return res.status(400).json({ error: 'Etiquetas del menú inválidas' });
+      }
+      sidebarLabelsValue = JSON.stringify(obj);
+    }
+    let appIconValue: string | null = null;
+    if (appIcon !== undefined && appIcon !== null) {
+      const value = typeof appIcon === 'string' ? appIcon : '';
+      if (value !== '' && !/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/.test(value)) {
+        return res.status(400).json({ error: 'Icono no válido' });
+      }
+      if (value.length > 400000) {
+        return res.status(400).json({ error: 'El icono es demasiado grande (máx. 300 KB)' });
+      }
+      appIconValue = value;
+    }
+    let titleSuffixValue: string | null = null;
+    if (appTitleSuffix !== undefined && appTitleSuffix !== null) {
+      if (typeof appTitleSuffix !== 'string' || appTitleSuffix.length > 40) {
+        return res.status(400).json({ error: 'Sufijo del título demasiado largo (máx. 40)' });
+      }
+      titleSuffixValue = appTitleSuffix;
+    }
+    /* every visual customization bumps the shared version + appends the log so
+       all clients can announce "nueva personalización vN" */
+    const CUSTOM_FIELDS: [string, any][] = [
+      ['companyName', companyName],
+      ['companyLogo', companyLogo],
+      ['theme', theme],
+      ['sidebarOrder', sidebarOrder],
+      ['sidebarHidden', sidebarHidden],
+      ['sidebarLabels', sidebarLabels],
+      ['loginTagline', loginTagline],
+      ['appIcon', appIcon],
+      ['appTitleSuffix', appTitleSuffix],
+    ];
+    const touchedFields = CUSTOM_FIELDS.filter(([, v]) => v !== undefined).map(([k]) => k);
+    let versionValue: number | null = null;
+    let logValue: string | null = null;
+    if (touchedFields.length > 0) {
+      const cur = await db.query("SELECT custom_version, custom_log FROM settings WHERE id = 'app'");
+      const prevVersion = Number(cur.rows[0]?.custom_version) || 1;
+      const prevLog = parseLogJson(cur.rows[0]?.custom_log);
+      const nextVersion = prevVersion + 1;
+      const entry = {
+        v: nextVersion,
+        at: new Date().toISOString(),
+        who: auth.ok ? auth.actorName : '',
+        fields: touchedFields,
+      };
+      versionValue = nextVersion;
+      logValue = JSON.stringify([entry, ...prevLog].slice(0, 20));
+    }
     const result = await db.query(
       `UPDATE settings SET
          company_name = COALESCE($1, company_name),
@@ -211,7 +341,12 @@ router.put('/', async (req: any, res: any) => {
          sidebar_order = COALESCE($21, sidebar_order),
          sidebar_hidden = COALESCE($22, sidebar_hidden),
          login_tagline = COALESCE($23, login_tagline),
-         updated_at = $24
+         sidebar_labels = COALESCE($24, sidebar_labels),
+         app_icon = COALESCE($25, app_icon),
+         app_title_suffix = COALESCE($26, app_title_suffix),
+         custom_version = COALESCE($27, custom_version),
+         custom_log = COALESCE($28, custom_log),
+         updated_at = $29
        WHERE id = 'app'`,
       [
         companyName !== undefined ? companyName : null,
@@ -239,6 +374,11 @@ router.put('/', async (req: any, res: any) => {
         sidebarOrderValue,
         sidebarHiddenValue,
         taglineValue,
+        sidebarLabelsValue,
+        appIconValue,
+        titleSuffixValue,
+        versionValue,
+        logValue,
         new Date().toISOString(),
       ]
     );
@@ -248,8 +388,8 @@ router.put('/', async (req: any, res: any) => {
            payment_titular, phone, email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from,
            smtp_enabled, currency, notif_interval, login_max_attempts, login_lockout_minutes,
            team_default_role, team_default_title, theme, sidebar_order, sidebar_hidden,
-           login_tagline, updated_at)
-         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+           login_tagline, sidebar_labels, app_icon, app_title_suffix, custom_version, custom_log, updated_at)
+         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
          ON CONFLICT (id) DO NOTHING`,
         [
           companyName || 'TeknoTech Services',
@@ -275,6 +415,11 @@ router.put('/', async (req: any, res: any) => {
           sidebarOrderValue || '[]',
           sidebarHiddenValue || '[]',
           taglineValue || 'Tecnología que impulsa,|lealtad que permanece.',
+          sidebarLabelsValue || '{}',
+          appIconValue || '',
+          titleSuffixValue ?? 'Cotizador',
+          versionValue ?? 1,
+          logValue || '[]',
           new Date().toISOString(),
         ]
       );
@@ -288,7 +433,12 @@ router.put('/', async (req: any, res: any) => {
 });
 
 // POST /api/settings/test-mail
-router.post('/test-mail', async (_req: any, res: any) => {
+router.post('/test-mail', async (req: any, res: any) => {
+  const auth = await authorizeCustomization(req);
+  if (!auth.ok) {
+    const fail = auth as { ok: false; status: number; error: string };
+    return res.status(fail.status).json({ error: fail.error });
+  }
   const db = getPool();
   try {
     const s = await db.query("SELECT * FROM settings WHERE id = 'app'");
@@ -305,10 +455,11 @@ router.post('/test-mail', async (_req: any, res: any) => {
       smtpEnabled: true,
     };
     const transport = createMailTransport(smtp);
+    const appName = (st.company_name || 'TeknoTech Services') + (st.app_title_suffix ? ` ${st.app_title_suffix}` : '');
     await transport.sendMail({
       from: mailFrom(smtp),
       to: smtp.smtpUser,
-      subject: 'Prueba SMTP - TeknoTech Services Cotizador',
+      subject: `Prueba SMTP - ${appName}`,
       text: 'Configuración correcta.',
     });
     return res.json({ success: true });
