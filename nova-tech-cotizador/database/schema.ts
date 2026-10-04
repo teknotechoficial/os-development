@@ -97,6 +97,7 @@ export async function initDatabase(): Promise<void> {
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS app_title_suffix TEXT DEFAULT 'Cotizador'`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_version INTEGER DEFAULT 1`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_log TEXT DEFAULT '[]'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_themes TEXT DEFAULT '[]'`,
   ];
 
   for (const query of queries) {

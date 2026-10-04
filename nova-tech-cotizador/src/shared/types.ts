@@ -100,3 +100,23 @@ export interface Service {
 	active?: boolean;
 	sortOrder?: number;
 }
+
+export interface CustomThemeColors {
+	bg: string;
+	deep: string;
+	surface: string;
+	card: string;
+	borderSoft: string;
+	border: string;
+	accent: string;
+	accentText: string;
+	text: string;
+	textMuted: string;
+	textDim: string;
+}
+
+export interface CustomTheme {
+	id: string;
+	name: string;
+	colors: CustomThemeColors;
+}

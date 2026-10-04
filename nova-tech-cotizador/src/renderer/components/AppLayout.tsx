@@ -21,6 +21,8 @@ import { useQuotes } from '../store/quotes';
 import { useTeam } from '../store/team';
 import { apiUrl } from '../api';
 import { playTone } from '@/renderer/utils/sound';
+import { injectCustomThemes, sanitizeCustomThemes, isThemePreviewActive } from '@/renderer/utils/customTheme';
+import type { CustomTheme } from '@/shared/types';
 import PersonModal from './PersonModal';
 import ProfileModal from './ProfileModal';
 import logoUrl from '../../../assets/logo-white.png';
@@ -80,6 +82,7 @@ type AppSettings = {
   appIcon: string;
   appTitleSuffix: string;
   customVersion: number;
+  customThemes: CustomTheme[];
 };
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -94,6 +97,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   appIcon: '',
   appTitleSuffix: 'Cotizador',
   customVersion: 1,
+  customThemes: [],
 };
 
 const notifKey = (n: any): string => {
@@ -214,7 +218,12 @@ const AppLayout: React.FC = () => {
         typeof data.appTitleSuffix === 'string' ? data.appTitleSuffix.slice(0, 40) : 'Cotizador';
       const rawVersion = Number(data.customVersion);
       const customVersion = Number.isFinite(rawVersion) && rawVersion >= 1 ? Math.round(rawVersion) : 1;
-      document.documentElement.dataset.theme = theme;
+      const customThemes = sanitizeCustomThemes(data.customThemes);
+      /* while the theme editor preview is active the draft owns the CSS/data-theme */
+      if (!isThemePreviewActive()) {
+        injectCustomThemes(customThemes);
+        document.documentElement.dataset.theme = theme;
+      }
       setAppSettings((prev) => {
         const next: AppSettings = {
           companyName,
@@ -228,6 +237,7 @@ const AppLayout: React.FC = () => {
           appIcon,
           appTitleSuffix,
           customVersion,
+          customThemes,
         };
         return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
       });

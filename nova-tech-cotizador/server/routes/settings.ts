@@ -91,6 +91,44 @@ const parseLogJson = (raw: any): any[] => {
   }
 };
 
+/* Custom themes: user-created palettes. Each theme rewrites the six base layer
+   colors plus accent/text colors via runtime-injected [data-theme] CSS. */
+const THEME_SLOTS = ['bg', 'deep', 'surface', 'card', 'borderSoft', 'border', 'accent', 'accentText', 'text', 'textMuted', 'textDim'];
+const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+const THEME_ID_RE = /^[a-z0-9][a-z0-9-]{2,31}$/;
+
+const parseCustomThemesInput = (value: any): any[] | null => {
+  if (!Array.isArray(value) || value.length > 30) return null;
+  const ids = new Set<string>();
+  const out: any[] = [];
+  for (const t of value) {
+    if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+    const { id, name, colors } = t as any;
+    if (typeof id !== 'string' || !THEME_ID_RE.test(id) || THEME_CODES.includes(id) || ids.has(id)) return null;
+    if (typeof name !== 'string' || !name.trim() || name.trim().length > 40) return null;
+    if (!colors || typeof colors !== 'object' || Array.isArray(colors)) return null;
+    const c: Record<string, string> = {};
+    for (const slot of THEME_SLOTS) {
+      const v = (colors as any)[slot];
+      if (typeof v !== 'string' || !HEX_RE.test(v)) return null;
+      c[slot] = v;
+    }
+    ids.add(id);
+    out.push({ id, name: name.trim(), colors: c });
+  }
+  return out;
+};
+
+const parseCustomThemesJson = (raw: any): any[] => {
+  if (typeof raw !== 'string' || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return parseCustomThemesInput(parsed) ?? [];
+  } catch {
+    return [];
+  }
+};
+
 /* Settings mutations require an identified active user with the CEO role or
    the explicit can_customize_ui permission granted by the CEO */
 type Authz = { ok: true; actorId: string; actorName: string } | { ok: false; status: number; error: string };
@@ -119,6 +157,7 @@ router.get('/', async (_req: any, res: any) => {
       row.sidebarHidden = parseNavJson((row as any).sidebarHidden);
       row.sidebarLabels = parseLabelsJson((row as any).sidebarLabels);
       row.customLog = parseLogJson((row as any).customLog);
+      row.customThemes = parseCustomThemesJson((row as any).customThemes);
     }
     res.json(row);
   } catch (err) {
@@ -135,7 +174,7 @@ router.get('/public', async (_req: any, res: any) => {
       `SELECT company_name, company_logo, currency, notif_interval, margin_minimum,
               team_default_role, team_default_title, phone, email, payment_alias, payment_titular,
               theme, sidebar_order, sidebar_hidden, login_tagline, sidebar_labels, app_icon,
-              app_title_suffix, custom_version
+              app_title_suffix, custom_version, custom_themes
        FROM settings WHERE id = 'app'`
     );
     const row = s.rows[0] ? toCamel(s.rows[0]) : null;
@@ -143,6 +182,7 @@ router.get('/public', async (_req: any, res: any) => {
       row.sidebarOrder = parseNavJson((row as any).sidebarOrder);
       row.sidebarHidden = parseNavJson((row as any).sidebarHidden);
       row.sidebarLabels = parseLabelsJson((row as any).sidebarLabels);
+      row.customThemes = parseCustomThemesJson((row as any).customThemes);
     }
     res.json(row);
   } catch (err) {
@@ -185,6 +225,7 @@ router.put('/', async (req: any, res: any) => {
     sidebarLabels,
     appIcon,
     appTitleSuffix,
+    customThemes,
   } = req.body || {};
   const marginValue = marginMinimum !== undefined ? marginMinimum : margin;
   try {
@@ -232,10 +273,27 @@ router.put('/', async (req: any, res: any) => {
     }
     let themeValue: string | null = null;
     if (theme !== undefined && theme !== null) {
-      if (typeof theme !== 'string' || !THEME_CODES.includes(theme)) {
+      if (typeof theme !== 'string' || (!THEME_CODES.includes(theme) && !THEME_ID_RE.test(theme))) {
         return res.status(400).json({ error: 'Tema no válido' });
       }
       themeValue = theme;
+    }
+    /* custom theme ids are validated against the list being saved (or the
+       stored list when customThemes is not part of this payload) */
+    if (themeValue && !THEME_CODES.includes(themeValue)) {
+      let themeFound = false;
+      if (customThemes !== undefined) {
+        const candidate = parseCustomThemesInput(customThemes);
+        themeFound = candidate !== null && candidate.some((t) => t.id === themeValue);
+      }
+      if (!themeFound) {
+        const cur = await db.query("SELECT custom_themes FROM settings WHERE id = 'app'");
+        const stored = parseCustomThemesJson(cur.rows[0]?.custom_themes);
+        themeFound = stored.some((t) => t.id === themeValue);
+      }
+      if (!themeFound) {
+        return res.status(400).json({ error: 'Tema personalizado inexistente' });
+      }
     }
     let sidebarOrderValue: string | null = null;
     if (sidebarOrder !== undefined && sidebarOrder !== null) {
@@ -286,6 +344,14 @@ router.put('/', async (req: any, res: any) => {
       }
       titleSuffixValue = appTitleSuffix;
     }
+    let customThemesValue: string | null = null;
+    if (customThemes !== undefined && customThemes !== null) {
+      const parsed = parseCustomThemesInput(customThemes);
+      if (parsed === null) {
+        return res.status(400).json({ error: 'Temas personalizados inválidos' });
+      }
+      customThemesValue = JSON.stringify(parsed);
+    }
     /* every visual customization bumps the shared version + appends the log so
        all clients can announce "nueva personalización vN" */
     const CUSTOM_FIELDS: [string, any][] = [
@@ -298,6 +364,7 @@ router.put('/', async (req: any, res: any) => {
       ['loginTagline', loginTagline],
       ['appIcon', appIcon],
       ['appTitleSuffix', appTitleSuffix],
+      ['customThemes', customThemes],
     ];
     const touchedFields = CUSTOM_FIELDS.filter(([, v]) => v !== undefined).map(([k]) => k);
     let versionValue: number | null = null;
@@ -346,7 +413,8 @@ router.put('/', async (req: any, res: any) => {
          app_title_suffix = COALESCE($26, app_title_suffix),
          custom_version = COALESCE($27, custom_version),
          custom_log = COALESCE($28, custom_log),
-         updated_at = $29
+         custom_themes = COALESCE($29, custom_themes),
+         updated_at = $30
        WHERE id = 'app'`,
       [
         companyName !== undefined ? companyName : null,
@@ -379,6 +447,7 @@ router.put('/', async (req: any, res: any) => {
         titleSuffixValue,
         versionValue,
         logValue,
+        customThemesValue,
         new Date().toISOString(),
       ]
     );
@@ -388,8 +457,8 @@ router.put('/', async (req: any, res: any) => {
            payment_titular, phone, email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from,
            smtp_enabled, currency, notif_interval, login_max_attempts, login_lockout_minutes,
            team_default_role, team_default_title, theme, sidebar_order, sidebar_hidden,
-           login_tagline, sidebar_labels, app_icon, app_title_suffix, custom_version, custom_log, updated_at)
-         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+           login_tagline, sidebar_labels, app_icon, app_title_suffix, custom_version, custom_log, custom_themes, updated_at)
+         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
          ON CONFLICT (id) DO NOTHING`,
         [
           companyName || 'TeknoTech Services',
@@ -420,6 +489,7 @@ router.put('/', async (req: any, res: any) => {
           titleSuffixValue ?? 'Cotizador',
           versionValue ?? 1,
           logValue || '[]',
+          customThemesValue || '[]',
           new Date().toISOString(),
         ]
       );

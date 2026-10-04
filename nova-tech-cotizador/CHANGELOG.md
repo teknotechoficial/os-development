@@ -38,6 +38,61 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build30] - 2026-10-04
+
+### Added
+- **Editor de temas personalizados** (segundo build de la saga "todo configurable";
+  sigue build31 = sistema de bloques de pantallas):
+  - **Persistencia**: columna `settings.custom_themes TEXT DEFAULT '[]'` (JSON array
+    de hasta 30 temas), migración solo en `database/schema.ts` y `server/db.ts`
+    (patrón build29, fuera de `src/main/database.ts`). `CustomTheme = {id, name,
+    colors}` con 11 slots hex (`bg, deep, surface, card, borderSoft, border, accent,
+    accentText, text, textMuted, textDim`).
+  - **API**: `parseCustomThemesInput/Json` validan server-side (id slug
+    `/^[a-z0-9][a-z0-9-]{2,31}$/` sin chocar con los presets, name 1-40, 11 hex
+    `#RRGGBB`, ids únicos, ≤30); `GET /api/settings` y `/api/settings/public`
+    parsean y exponen `customThemes`; `PUT` valida el payload con `customThemesValue`
+    (400 "Temas personalizados inválidos") y bumpa `custom_version`/`custom_log`
+    con el campo `customThemes`. El campo `theme` acepta ids custom: se valida
+    contra `customThemes` del payload o contra los guardados en DB
+    (400 "Tema personalizado inexistente" si no existe).
+  - **UI** (`Settings.tsx`, card `#settings-theme-editor` en tab Sistema): lista +
+    grid de temas (presets + custom, `aria-pressed`), botón "Nuevo tema", editor con
+    **nombre → id auto** (slugify), 11 color inputs + lectura hex, validaciones de
+    cliente con `#settings-theme-error`, editar (`#settings-theme-edit-<id>`) y
+    eliminar (`#settings-theme-delete-<id>`, si era el activo vuelve a `dark`).
+  - **CSS runtime por tema** (`src/renderer/utils/customTheme.ts`):
+    `buildThemeCss` genera `[data-theme='ID']` + `body` + las 6 clases Tailwind
+    escapadas de los bloques preset (`bg-[#0A182E]`/95, `bg-[#081426]`,
+    `bg-[#10233E]`/70/80, `bg-[#0C1E36]`/60, `border-[#16294A]`/60/70,
+    `border-[#1C3557]`) + variantes de acento con opacidades (bg/border/ring y
+    `hover:`/`focus:`) + textos (`#60A5FA`, `#E6EDF7`, `#8FA6C4`, `#5B7295`) +
+    `--color-primary`; `injectCustomThemes` lo mantiene en `<style id="nt-custom-themes">`.
+  - **Preview en vivo**: al editar, el borrador se inyecta y `data-theme` aplica al
+    `<html>` con guardia `setThemePreviewActive/isThemePreviewActive` para que el
+    refresh de 15s de `AppLayout` no pise el draft; cancelar/abandonar la página
+    restaura la lista y el tema guardados; la persistencia ocurre con el
+    "Guardar cambios" normal del formulario (payload incluye `customThemes`).
+  - **Probes**: `verify-b30` nuevo (39 checks: validaciones API 401/403/400 de
+    id/color/slots/≤30, bump+log, theme custom aceptado/rechazado, alta UI con
+    preview y persistencia tras reload + banner, edición y eliminación, restauración)
+    → **39/39 verde**.
+
+### Fixed
+- `PUT /api/settings {theme: <id-custom>}` sin `customThemes` en el payload
+  devolvía 400 sin consultar la DB (el fallback al listado guardado era código
+  muerto): ahora valida contra el payload si viene, si no contra `custom_themes`
+  almacenados.
+- El `id="settings-theme-color-<slot>"` estaba en el DIV contenedor de cada color
+  y no en el `<input type="color">` (el probe/CDP no podía manipular el input).
+
+### Changed
+- E2E completa sobre la app instalada: **b30 39/39, b29 42/42, b28 27/27,
+  b27 38/38, settings-new 24/24, b13 78/78, b25 40/40, b25-server 33/33,
+  c/d/b2/v5 exit0** (321 checks verdes).
+- Typecheck doble `R=0 M=0`; empaquetado `electron-builder --dir` + robocopy
+  (ASAR 40.923.045 @ 13:31).
+
 ## [1.0.0-build29] - 2026-10-03
 
 ### Added

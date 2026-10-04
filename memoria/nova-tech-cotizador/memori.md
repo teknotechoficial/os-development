@@ -919,7 +919,69 @@ pm run build NO reempaqueta el asar** - despues de cambios hay que correr
 - **Re-migraciones**: server/db.ts `queries` (lineas 51-75) ya incluye los 5 ALTERs de
   settings build29 + migrations incluye can_customize_ui; se ejecutan en cada arranque.
 
-### Pendiente build30/31 (plan aprobado)
-- build30: editor de temas nuevos (crear/editar/custom themes en Ajustes).
+## Build30 - Editor de temas personalizados (2026-10-04) - PUSHEADO
+
+### Feature
+- **Columna `settings.custom_themes TEXT DEFAULT '[]'`** (JSON array <=30 temas);
+  migracion SOLO en database/schema.ts + server/db.ts (patron b29, NO en
+  src/main/database.ts). `CustomTheme={id,name,colors}` con 11 slots hex.
+- **API** (server/routes/settings.ts): THEME_SLOTS/HEX_RE=/^#[0-9A-Fa-f]{6}$/,
+  THEME_ID_RE=/^[a-z0-9][a-z0-9-]{2,31}$/, parseCustomThemesInput (null si id
+  preset/mayuscula/dup/falta slot/hex malo/>30), parseCustomThemesJson (-> [] en
+  vez de null), GET / y /public parsean+exponen customThemes (SELECT += columna),
+  PUT: customThemesValue 400 'Temas personalizados invalidos', CUSTOM_FIELDS +=
+  ['customThemes', JSON], UPDATE $30 / INSERT con columna, bump custom_version +
+  customLog fields incluye 'customThemes'. theme custom validado contra payload O
+  DB guardada (400 'Tema personalizado inexistente').
+- **utils/customTheme.ts (nuevo)**: THEME_SLOT_KEYS/LABELS, DEFAULT_THEME_COLORS
+  (= paleta dark), slugifyTheme (NFD, slice 32), isValidHex, sanitizeCustomThemes,
+  buildThemeCss (reglas [data-theme='ID'] + body + 6 clases Tailwind escapadas de
+  globals.css + acento opacidades bg10-25/border25-70/ring25-80 con hover:/focus: +
+  textos + --color-primary), injectCustomThemes (style id `nt-custom-themes`),
+  guard setThemePreviewActive/isThemePreviewActive (flag module-level).
+- **Settings.tsx**: SettingsData/DEFAULT/mergeSettings += customThemes;
+  themeOptions = presets + custom en grid; card `#settings-theme-editor` con lista
+  (#settings-theme-item-<id>) + editor (openNewTheme/openEditTheme/cancelThemeEditor/
+  updateThemeDraft (preview en vivo con guard)/saveThemeDraft (valida+selectTheme)/
+  deleteTheme (si activo -> dark)); ids: settings-theme-new/name/id (readonly)/
+  color-<slot> (EN EL INPUT type=color, fix)/hex-<slot>/save/cancel/error/
+  edit-<id>/delete-<id>; persistencia via handleSave (payload {...settings}).
+- **AppLayout.tsx**: AppSettings += customThemes; refresh parsea con
+  sanitizeCustomThemes + injectCustomThemes SOLO si !isThemePreviewActive().
+
+### Fixes durante E2E
+- **server 1.14**: PUT {theme:id-custom} sin customThemes en payload -> 400 porque
+  `candidate=null` cortaba antes del fallback a DB (codigo muerto). Fix: validar
+  contra payload si viene, si no contra custom_themes guardados.
+- **UI**: el id `settings-theme-color-<slot>` estaba en el DIV contenedor, no en el
+  `<input type=color>` -> CDP/probe no podia setear el color ('Illegal invocation').
+- **Probe**: FASE A dejaba lava-oscuro persistido y la UI chocaba con duplicado ->
+  reset API 1.17 antes de fase UI; banner requiere nt_custom_version > 0 (set '1'
+  antes del reload, NO remove); ev('location.reload()') lanza excepcion del contexto
+  -> helper evJson con retry.
+
+### E2E build30 (321 verdes + probes exit0)
+- b30 NUEVO **39/39** (API validaciones 401/403/400 x6, bump+log, theme custom
+  ok/400, UI crear con preview+persistencia tras reload+banner, editar, eliminar,
+  restaurar) - b29 42/42 - b28 27/27 - b27 38/38 - settings-new 24/24 - b13 78/78 -
+  b25 40/40 - b25-server 33/33 - c/d/b2/v5 exit0.
+- tsc R=0 M=0; vite exit0; electron-builder --dir exit0 + robocopy exit1 (ok);
+  ASAR 40,923,045 @ 13:31 en instalado; app CDP 9222.
+
+### Gotchas build30
+- **margin_minimum en DB quedo en 150** (residuo externo, schema default 250/.env
+  250) -> b25/b25-server fallan el piso (38/40 y 30/33). Fix: PUT marginMinimum:250
+  via API login `{code:'CEO001',pin:'1234'}` (OJO: `{identifier,pin}` NO funciona,
+  el endpoint exige `code`). Despues 40/40 y 33/33.
+- **login con API**: POST /api/login acepta {code,pin} o {identifier,password};
+  {identifier,pin} da 401.
+- clean-db.js usa DATABASE_URL con usuario nova_tech (NO postgres; pg_hba es
+  scram y solo ese usuario tiene password conocido); NODE_PATH a node_modules del
+  proyecto para require('pg') desde Temp.
+- **Rebuild**: Settings.tsx/customTheme.ts son renderer -> `npx vite build`;
+  settings.ts server corre con tsx -> reiniciar `npm run server`; despues
+  electron-builder --dir + robocopy.
+
+### Pendiente build31 (ultimo del plan aprobado)
 - build31: sistema de bloques de pantallas (mover bloques, editar textos/funciones/
   animaciones - Dashboard 5 bloques, Reports 7 secciones, etc.).

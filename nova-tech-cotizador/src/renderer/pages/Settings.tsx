@@ -12,6 +12,7 @@ import {
 	KeyRound,
 	Mail,
 	Palette,
+	Paintbrush,
 	PanelLeft,
 	Server,
 	Sliders,
@@ -34,6 +35,18 @@ import QuotePreviewCard from '@/renderer/components/settings/QuotePreviewCard';
 import MailStatusCard from '@/renderer/components/settings/MailStatusCard';
 import { TONE_OPTIONS, isValidTone, playTone } from '@/renderer/utils/sound';
 import type { SoundTone } from '@/renderer/utils/sound';
+import {
+	DEFAULT_THEME_COLORS,
+	THEME_ID_RE,
+	THEME_SLOT_KEYS,
+	THEME_SLOT_LABELS,
+	injectCustomThemes,
+	isValidHex,
+	sanitizeCustomThemes,
+	setThemePreviewActive,
+	slugifyTheme,
+} from '@/renderer/utils/customTheme';
+import type { CustomTheme } from '@/shared/types';
 
 const INPUT_CLASS =
 	'w-full px-4 py-2.5 bg-[#0C1E36] border border-[#1C3557] text-white placeholder-[#5B7295] focus:border-[#1877E8] focus:ring-2 focus:ring-[#1877E8]/30 outline-none rounded-xl text-sm';
@@ -74,6 +87,7 @@ interface SettingsData {
 	appTitleSuffix: string;
 	customVersion: number;
 	loginTagline: string;
+	customThemes: CustomTheme[];
 }
 
 const DEFAULT_SETTINGS: SettingsData = {
@@ -104,6 +118,7 @@ const DEFAULT_SETTINGS: SettingsData = {
 	appTitleSuffix: 'Cotizador',
 	customVersion: 1,
 	loginTagline: 'Tecnología que impulsa,|lealtad que permanece.',
+	customThemes: [],
 };
 
 const THEME_OPTIONS = [
@@ -339,6 +354,9 @@ const mergeSettings = (prev: SettingsData, data: Record<string, any>): SettingsD
 		typeof data.customVersion === 'number' && data.customVersion >= 1
 			? data.customVersion
 			: prev.customVersion,
+	customThemes: Array.isArray(data.customThemes)
+		? sanitizeCustomThemes(data.customThemes)
+		: prev.customThemes,
 });
 
 interface FieldProps {
@@ -491,6 +509,124 @@ const Settings: React.FC = () => {
 
 	const iconFileRef = useRef<HTMLInputElement>(null);
 	const [iconError, setIconError] = useState<string | null>(null);
+
+	const [themeEditorOpen, setThemeEditorOpen] = useState(false);
+	const [themeEditingId, setThemeEditingId] = useState<string | null>(null);
+	const [themeDraft, setThemeDraft] = useState<CustomTheme>({
+		id: '',
+		name: '',
+		colors: { ...DEFAULT_THEME_COLORS },
+	});
+	const [themeError, setThemeError] = useState<string | null>(null);
+
+	const themeDraftId = themeEditingId ?? slugifyTheme(themeDraft.name);
+
+	/* keep the injected custom theme CSS in sync with the edited list */
+	useEffect(() => {
+		injectCustomThemes(settings.customThemes);
+	}, [settings.customThemes]);
+
+	/* live preview: while the editor is open the draft theme is injected and
+	   applied; cancel/restore puts the saved list and theme back */
+	const applyThemePreview = (draft: CustomTheme) => {
+		const others = settings.customThemes.filter((t) => t.id !== draft.id);
+		injectCustomThemes([...others, draft]);
+		setThemePreviewActive(draft.id || 'draft');
+		try {
+			document.documentElement.dataset.theme = draft.id;
+		} catch {
+			/* sin document */
+		}
+	};
+
+	/* leaving the page with the editor open must not strand the draft */
+	useEffect(
+		() => () => {
+			setThemePreviewActive(null);
+		},
+		[],
+	);
+
+	const openNewTheme = () => {
+		setThemeEditingId(null);
+		setThemeDraft({ id: '', name: '', colors: { ...DEFAULT_THEME_COLORS } });
+		setThemeError(null);
+		setThemeEditorOpen(true);
+	};
+
+	const openEditTheme = (theme: CustomTheme) => {
+		setThemeEditingId(theme.id);
+		setThemeDraft({ id: theme.id, name: theme.name, colors: { ...theme.colors } });
+		setThemeError(null);
+		setThemeEditorOpen(true);
+		applyThemePreview(theme);
+	};
+
+	const cancelThemeEditor = () => {
+		setThemeEditorOpen(false);
+		setThemeError(null);
+		setThemePreviewActive(null);
+		injectCustomThemes(settings.customThemes);
+		try {
+			document.documentElement.dataset.theme = settings.theme;
+		} catch {
+			/* sin document */
+		}
+	};
+
+	const updateThemeDraft = (patch: Partial<CustomTheme>) => {
+		const next: CustomTheme = { ...themeDraft, ...patch };
+		if (patch.colors) next.colors = { ...themeDraft.colors, ...patch.colors } as CustomTheme['colors'];
+		if (!themeEditingId) next.id = slugifyTheme(next.name);
+		setThemeDraft(next);
+		applyThemePreview(next);
+	};
+
+	const saveThemeDraft = () => {
+		const name = themeDraft.name.trim();
+		const id = themeEditingId ?? slugifyTheme(name);
+		if (!name || name.length > 40) {
+			setThemeError('Nombre inválido (1 a 40 caracteres)');
+			return;
+		}
+		if (!THEME_ID_RE.test(id)) {
+			setThemeError('El id generado no es válido (usá letras, números o guiones)');
+			return;
+		}
+		if (['dark', 'midnight', 'steel', 'ocean'].includes(id)) {
+			setThemeError('Ese id corresponde a un tema predefinido');
+			return;
+		}
+		const duplicated = settings.customThemes.some((t) => t.id === id && t.id !== themeEditingId);
+		if (duplicated) {
+			setThemeError('Ya existe un tema con ese id');
+			return;
+		}
+		const colors = { ...DEFAULT_THEME_COLORS, ...themeDraft.colors } as CustomTheme['colors'];
+		for (const slot of THEME_SLOT_KEYS) {
+			if (!isValidHex(colors[slot])) {
+				setThemeError(`Color inválido en: ${THEME_SLOT_LABELS[slot]}`);
+				return;
+			}
+		}
+		const saved: CustomTheme = { id, name, colors };
+		const list = themeEditingId
+			? settings.customThemes.map((t) => (t.id === themeEditingId ? saved : t))
+			: [...settings.customThemes, saved];
+		injectCustomThemes(list);
+		setSettings((prev) => ({ ...prev, customThemes: list }));
+		setThemeEditorOpen(false);
+		setThemeError(null);
+		setThemePreviewActive(null);
+		selectTheme(id);
+	};
+
+	const deleteTheme = (id: string) => {
+		const list = settings.customThemes.filter((t) => t.id !== id);
+		injectCustomThemes(list);
+		setSettings((prev) => ({ ...prev, customThemes: list }));
+		if (settings.theme === id) selectTheme('dark');
+	};
 
 	const handleIconFile = (file: File) => {
 		setIconError(null);
@@ -799,6 +935,15 @@ const Settings: React.FC = () => {
 		const rest = base.filter((path) => !current.includes(path));
 		return [...current, ...rest];
 	})();
+
+	const themeOptions = [
+		...THEME_OPTIONS,
+		...settings.customThemes.map((t) => ({
+			value: t.id,
+			label: t.name,
+			swatch: [t.colors.bg, t.colors.surface, t.colors.accent],
+		})),
+	];
 
 	const moveNav = (path: string, dir: -1 | 1) => {
 		const list = [...navOrderList];
@@ -1887,7 +2032,7 @@ const Settings: React.FC = () => {
 									</div>
 								</div>
 								<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-									{THEME_OPTIONS.map((option) => (
+									{themeOptions.map((option) => (
 										<button
 											key={option.value}
 											type="button"
@@ -1921,6 +2066,181 @@ const Settings: React.FC = () => {
 								<p className="text-xs text-[#5B7295] mt-3">
 									Se aplica al instante y queda guardado para todos los usuarios.
 								</p>
+							</Card>
+
+							<Card className={`p-6 ${CARD_CLASS}`} id="settings-theme-editor">
+								<div className="flex items-center justify-between gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<div className="flex items-center gap-3">
+										<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+											<Paintbrush className="w-4 h-4" />
+										</span>
+										<div>
+											<h2 className={SECTION_TITLE}>Temas personalizados</h2>
+											<p className="text-xs text-[#5B7295]">
+												Creá tus propias paletas y aplicalas al instante
+											</p>
+										</div>
+									</div>
+									{!themeEditorOpen && (
+										<Button
+											type="button"
+											id="settings-theme-new"
+											onClick={openNewTheme}
+											className="bg-[#1877E8] hover:bg-[#1462C0] text-white text-xs px-4 py-2 rounded-xl"
+										>
+											Nuevo tema
+										</Button>
+									)}
+								</div>
+
+								{settings.customThemes.length > 0 && !themeEditorOpen && (
+									<div className="space-y-2 mb-4">
+										{settings.customThemes.map((t) => (
+											<div
+												key={t.id}
+												id={`settings-theme-item-${t.id}`}
+												className="flex items-center justify-between gap-3 bg-[#0C1E36] border border-[#1C3557] rounded-xl px-3 py-2"
+											>
+												<div className="flex items-center gap-3 min-w-0">
+													<span className="flex gap-1.5 shrink-0">
+														{[t.colors.bg, t.colors.surface, t.colors.accent].map((color, i) => (
+															<span
+																key={`${t.id}-${i}`}
+																className="w-4 h-4 rounded-md border border-white/15"
+																style={{ backgroundColor: color }}
+															/>
+														))}
+													</span>
+													<span className="text-xs text-white font-semibold truncate">
+														{t.name}
+													</span>
+													<span className="text-[10px] text-[#5B7295] uppercase tracking-[0.1em] shrink-0">
+														{t.id}
+													</span>
+												</div>
+												<span className="flex gap-2 shrink-0">
+													<button
+														type="button"
+														id={`settings-theme-edit-${t.id}`}
+														onClick={() => openEditTheme(t)}
+														className="text-[11px] text-[#60A5FA] hover:text-white transition-colors"
+													>
+														Editar
+													</button>
+													<button
+														type="button"
+														id={`settings-theme-delete-${t.id}`}
+														onClick={() => deleteTheme(t.id)}
+														className="text-[11px] text-[#E11D48] hover:text-white transition-colors"
+													>
+														Eliminar
+													</button>
+												</span>
+											</div>
+										))}
+									</div>
+								)}
+
+								{settings.customThemes.length === 0 && !themeEditorOpen && (
+									<p className="text-xs text-[#5B7295] mb-4">
+										Todavía no hay temas personalizados. Creá uno nuevo para
+										personalizar colores de fondo, superficies, bordes y acentos.
+									</p>
+								)}
+
+								{themeEditorOpen && (
+									<div className="bg-[#0C1E36] border border-[#1C3557] rounded-xl p-4 space-y-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+											<div>
+												<label htmlFor="settings-theme-name" className={LABEL_CLASS}>
+													Nombre del tema
+												</label>
+												<input
+													id="settings-theme-name"
+													type="text"
+													value={themeDraft.name}
+													maxLength={40}
+													placeholder="Ej: Oro Medianoche"
+													onChange={(e) => updateThemeDraft({ name: e.target.value })}
+													className={INPUT_CLASS}
+												/>
+											</div>
+											<div>
+												<span className={LABEL_CLASS}>Identificador</span>
+												<input
+													id="settings-theme-id"
+													type="text"
+													value={themeDraftId}
+													readOnly
+													className={`${INPUT_CLASS} opacity-70 cursor-not-allowed`}
+												/>
+											</div>
+										</div>
+
+										<div>
+											<span className={LABEL_CLASS}>Colores</span>
+											<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+												{THEME_SLOT_KEYS.map((slot) => (
+													<div
+														key={slot}
+														className="flex items-center gap-2 bg-[#10233E] border border-[#1C3557] rounded-lg px-2.5 py-2"
+													>
+														<input
+															id={`settings-theme-color-${slot}`}
+															type="color"
+															aria-label={THEME_SLOT_LABELS[slot]}
+															value={themeDraft.colors[slot]}
+															onChange={(e) =>
+																updateThemeDraft({ colors: { [slot]: e.target.value } as unknown as CustomTheme['colors'] })
+															}
+															className="w-7 h-7 rounded-md border border-white/15 bg-transparent cursor-pointer p-0"
+														/>
+														<span className="min-w-0">
+															<span className="block text-[11px] text-white font-semibold truncate">
+																{THEME_SLOT_LABELS[slot]}
+															</span>
+															<span
+																id={`settings-theme-hex-${slot}`}
+																className="block text-[10px] text-[#5B7295] uppercase"
+															>
+																{themeDraft.colors[slot]}
+															</span>
+														</span>
+													</div>
+												))}
+											</div>
+										</div>
+
+										{themeError && (
+											<p id="settings-theme-error" className="text-xs text-[#E11D48]">
+												{themeError}
+											</p>
+										)}
+
+										<div className="flex gap-3">
+											<Button
+												type="button"
+												id="settings-theme-save"
+												onClick={saveThemeDraft}
+												className="bg-[#1877E8] hover:bg-[#1462C0] text-white text-xs px-4 py-2 rounded-xl"
+											>
+												Guardar tema
+											</Button>
+											<Button
+												type="button"
+												id="settings-theme-cancel"
+												onClick={cancelThemeEditor}
+												className="bg-transparent border border-[#1C3557] text-[#8FA6C4] hover:text-white text-xs px-4 py-2 rounded-xl"
+											>
+												Cancelar
+											</Button>
+										</div>
+										<p className="text-[11px] text-[#5B7295]">
+											La vista previa se aplica mientras editás. Guardá los cambios
+											generales para publicarlo a todo el equipo.
+										</p>
+									</div>
+								)}
 							</Card>
 
 							<Card className={`p-6 ${CARD_CLASS}`}>
