@@ -120,3 +120,15 @@ export interface CustomTheme {
 	name: string;
 	colors: CustomThemeColors;
 }
+
+export interface AssistantMessage {
+	id: string;
+	role: 'user' | 'assistant';
+	content: string;
+	at: string;
+}
+
+export interface AssistantChatResponse {
+	reply: string;
+	mode: 'ai' | 'offline';
+}

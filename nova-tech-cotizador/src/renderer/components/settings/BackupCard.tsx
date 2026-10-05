@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { DatabaseBackup, Download, Upload } from 'lucide-react';
 import { apiUrl } from '@/renderer/api';
 import { Button, Card } from '@/renderer/components/ui';
+import { useAuth } from '@/renderer/store/auth';
 
 interface BackupCardProps {
 	onImported: () => void;
@@ -27,6 +28,7 @@ const STRING_KEYS = [
 
 const BackupCard: React.FC<BackupCardProps> = ({ onImported }) => {
 	const fileRef = useRef<HTMLInputElement>(null);
+	const { user } = useAuth();
 	const [exporting, setExporting] = useState(false);
 	const [importing, setImporting] = useState(false);
 	const [feedback, setFeedback] = useState<Feedback>(null);
@@ -35,7 +37,9 @@ const BackupCard: React.FC<BackupCardProps> = ({ onImported }) => {
 		setExporting(true);
 		setFeedback(null);
 		try {
-			const response = await fetch(apiUrl('/api/settings'));
+			const response = await fetch(apiUrl('/api/settings'), {
+				headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id ?? '' },
+			});
 			if (!response.ok) throw new Error('export failed');
 			const data = await response.json();
 			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

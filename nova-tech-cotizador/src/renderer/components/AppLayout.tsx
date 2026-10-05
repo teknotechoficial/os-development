@@ -25,6 +25,7 @@ import { injectCustomThemes, sanitizeCustomThemes, isThemePreviewActive } from '
 import type { CustomTheme } from '@/shared/types';
 import PersonModal from './PersonModal';
 import ProfileModal from './ProfileModal';
+import AssistantWidget from './assistant/AssistantWidget';
 import logoUrl from '../../../assets/logo-white.png';
 
 interface NavItem {
@@ -718,6 +719,7 @@ const AppLayout: React.FC = () => {
 
       {personId ? <PersonModal memberId={personId} onClose={() => setPersonId(null)} /> : null}
       {profileModal ? <ProfileModal onClose={() => setProfileModal(false)} /> : null}
+      <AssistantWidget />
     </div>
   );
 };

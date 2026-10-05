@@ -5,6 +5,7 @@ import {
 	ArrowDown,
 	ArrowUp,
 	Bell,
+	Bot,
 	Building2,
 	Check,
 	Eye,
@@ -88,6 +89,13 @@ interface SettingsData {
 	customVersion: number;
 	loginTagline: string;
 	customThemes: CustomTheme[];
+	aiEnabled: boolean;
+	aiName: string;
+	aiProvider: string;
+	aiBaseUrl: string;
+	aiModel: string;
+	aiApiKey: string;
+	aiTemperature: number;
 }
 
 const DEFAULT_SETTINGS: SettingsData = {
@@ -119,6 +127,13 @@ const DEFAULT_SETTINGS: SettingsData = {
 	customVersion: 1,
 	loginTagline: 'Tecnología que impulsa,|lealtad que permanece.',
 	customThemes: [],
+	aiEnabled: true,
+	aiName: 'Nova IA',
+	aiProvider: 'openai',
+	aiBaseUrl: 'https://api.openai.com/v1',
+	aiModel: 'gpt-4o-mini',
+	aiApiKey: '',
+	aiTemperature: 0.7,
 };
 
 const THEME_OPTIONS = [
@@ -357,6 +372,13 @@ const mergeSettings = (prev: SettingsData, data: Record<string, any>): SettingsD
 	customThemes: Array.isArray(data.customThemes)
 		? sanitizeCustomThemes(data.customThemes)
 		: prev.customThemes,
+	aiEnabled: typeof data.aiEnabled === 'boolean' ? data.aiEnabled : prev.aiEnabled,
+	aiName: typeof data.aiName === 'string' ? data.aiName : prev.aiName,
+	aiProvider: typeof data.aiProvider === 'string' ? data.aiProvider : prev.aiProvider,
+	aiBaseUrl: typeof data.aiBaseUrl === 'string' ? data.aiBaseUrl : prev.aiBaseUrl,
+	aiModel: typeof data.aiModel === 'string' ? data.aiModel : prev.aiModel,
+	aiApiKey: typeof data.aiApiKey === 'string' ? data.aiApiKey : prev.aiApiKey,
+	aiTemperature: typeof data.aiTemperature === 'number' ? data.aiTemperature : prev.aiTemperature,
 });
 
 interface FieldProps {
@@ -404,15 +426,19 @@ const Banner: React.FC<{ banner: BannerState | null }> = ({ banner }) =>
 	) : null;
 
 interface ToggleProps {
+	id?: string;
 	checked: boolean;
 	onChange: (value: boolean) => void;
 	label: string;
 }
 
-const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label }) => (
+const Toggle: React.FC<ToggleProps> = ({ id, checked, onChange, label }) => (
 	<button
 		type="button"
+		id={id}
+		role="switch"
 		onClick={() => onChange(!checked)}
+		aria-checked={checked}
 		aria-pressed={checked}
 		className="flex items-center gap-3 focus:outline-none"
 	>
@@ -488,6 +514,7 @@ const Settings: React.FC = () => {
 	const [credBanner, setCredBanner] = useState<BannerState | null>(null);
 
 	const [testingMail, setTestingMail] = useState(false);
+	const [testingAi, setTestingAi] = useState(false);
 
 	const [prefs, setPrefs] = useState<UserPrefs>(() => readUserPrefs());
 	const [prefsSaved, setPrefsSaved] = useState(false);
@@ -684,7 +711,9 @@ const Settings: React.FC = () => {
 
 	const fetchSettings = useCallback(async (isCurrent?: () => boolean) => {
 		try {
-			const response = await fetch(apiUrl('/api/settings'));
+			const response = await fetch(apiUrl('/api/settings'), {
+				headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id ?? '' },
+			});
 			if (!response.ok) return;
 			const data = await response.json().catch(() => null);
 			if (!data || typeof data !== 'object') return;
@@ -695,7 +724,7 @@ const Settings: React.FC = () => {
 		} finally {
 			if (!isCurrent || isCurrent()) setLoading(false);
 		}
-	}, []);
+	}, [user?.id]);
 
 	useEffect(() => {
 		let active = true;
@@ -856,6 +885,28 @@ const Settings: React.FC = () => {
 			});
 		} finally {
 			setTestingMail(false);
+		}
+	};
+
+	const handleTestAi = async () => {
+		setTestingAi(true);
+		setBanner(null);
+		try {
+			const response = await fetch(apiUrl('/api/assistant/test'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id ?? '' },
+				body: JSON.stringify({ baseUrl: settings.aiBaseUrl, apiKey: settings.aiApiKey, model: settings.aiModel }),
+			});
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok || (data && data.error)) throw new Error((data && data.error) || 'No se pudo probar la conexión');
+			if (data && data.ok === false) throw new Error(data.error || 'El proveedor rechazó la conexión');
+			setBanner({ type: 'success', message: 'Conexión con el proveedor verificada' });
+			window.setTimeout(() => setBanner(null), 4000);
+		} catch (error) {
+			setBanner({ type: 'error', message: error instanceof Error && error.message ? error.message : 'No se pudo probar la conexión' });
+			window.setTimeout(() => setBanner(null), 5000);
+		} finally {
+			setTestingAi(false);
 		}
 	};
 
@@ -2498,6 +2549,78 @@ const Settings: React.FC = () => {
 									Tras {settings.loginMaxAttempts} intentos fallidos se bloquea el acceso
 									durante {settings.loginLockoutMinutes} minutos.
 								</p>
+							</Card>
+
+							<Card className={`p-6 ${CARD_CLASS}`} id="settings-assistant">
+								<div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#16294A]">
+									<span className="w-9 h-9 rounded-xl bg-[#1877E8]/10 border border-[#1877E8]/25 text-[#60A5FA] flex items-center justify-center shrink-0">
+										<Bot className="w-4 h-4" />
+									</span>
+									<div>
+										<h2 className={SECTION_TITLE}>Asistente IA (Nova IA)</h2>
+										<p className="text-xs text-[#5B7295]">
+											Configurá el motor de inteligencia artificial de TeknoTech Services
+										</p>
+									</div>
+								</div>
+								<div className="mb-5">
+									<Toggle
+										id="settings-ai-enabled"
+										checked={settings.aiEnabled}
+										onChange={(value) =>
+											setSettings((prev) => ({ ...prev, aiEnabled: value }))
+										}
+										label="Habilitar asistente IA"
+									/>
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<Field
+										id="settings-ai-name"
+										label="Nombre del asistente"
+										value={settings.aiName}
+										onChange={updateField('aiName')}
+									/>
+									<Field
+										id="settings-ai-model"
+										label="Modelo"
+										value={settings.aiModel}
+										onChange={updateField('aiModel')}
+									/>
+									<Field
+										id="settings-ai-base-url"
+										label="URL base del proveedor (compatible con OpenAI)"
+										value={settings.aiBaseUrl}
+										onChange={updateField('aiBaseUrl')}
+									/>
+									<Field
+										id="settings-ai-temperature"
+										label="Temperatura (0 - 2)"
+										type="number"
+										value={String(settings.aiTemperature)}
+										onChange={(value) => setAnyField('aiTemperature', Number(value))}
+									/>
+									<Field
+										id="settings-ai-api-key"
+										label="Clave API"
+										type="password"
+										value={settings.aiApiKey}
+										onChange={updateField('aiApiKey')}
+									/>
+									<p className="text-xs text-[#5B7295]">
+										Sin clave API el asistente funciona en modo local (sin IA externa). La clave se guarda solo en el servidor.
+									</p>
+								</div>
+								<div className="mt-5">
+									<Button
+										type="button"
+										variant="secondary"
+										onClick={handleTestAi}
+										disabled={testingAi}
+									>
+										<Bot className="w-4 h-4" />
+										{testingAi ? 'PROBANDO…' : 'PROBAR CONEXIÓN'}
+									</Button>
+								</div>
 							</Card>
 
 							<div className="flex justify-end pt-1">

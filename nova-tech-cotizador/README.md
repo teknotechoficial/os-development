@@ -17,6 +17,23 @@ Aplicación de escritorio (Electron) con backend local Express + PostgreSQL 16, 
 - ✅ Generación de PDF y envío por WhatsApp
 - ✅ Sin scroll en login, interfaz dark navy estilo boceto
 
+## Asistente IA (Nova IA)
+
+Mascota animada y arrastrable (cachorro) con panel de chat, creada por **TeknoTech Services**.
+
+**Funciones (build31):**
+
+- ✅ Responder dudas sobre el sistema
+- ✅ Orientar sobre rutas, cotizaciones y reportes
+- ✅ Historial de conversación persistente por usuario
+- ✅ Modo local sin clave API
+
+**Configuración** (Configuración → pestaña Sistema → tarjeta "Asistente IA"): habilitar/deshabilitar, nombre, modelo, URL base compatible con OpenAI, clave API, temperatura y botón **"Probar conexión"**.
+
+**Seguridad:** la clave API se guarda solo en el servidor y jamás se expone en la API pública; rate limit de **20 mensajes/minuto**.
+
+**Estados:** modo IA (proveedor OpenAI-compatible) o modo local (sin clave).
+
 ## Stack
 
 - **Frontend**: React 18 + TypeScript + Tailwind CSS 3.4 + lucide-react + Zustand v5

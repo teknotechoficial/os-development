@@ -11,6 +11,7 @@ import settingsRouter from './routes/settings';
 import quotesRouter from './routes/quotes';
 import servicesRouter from './routes/services';
 import tasksRouter from './routes/tasks';
+import assistantRouter from './routes/assistant';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/quotes', quotesRouter);
 app.use('/api/services', servicesRouter);
 app.use('/api/tasks', tasksRouter);
+app.use('/api/assistant', assistantRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', app: 'TeknoTech Services Cotizador', timestamp: new Date().toISOString() });

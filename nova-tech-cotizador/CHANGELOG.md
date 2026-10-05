@@ -38,11 +38,71 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Cotizaciones demo restauradas vía re-seed (faltaban `demo-quote-03` y `demo-quote-08`).
 
+## [1.0.0-build31] - 2026-10-05
+
+### Added
+- **Asistente IA "Nova IA"** (primer build de la saga IA; los bloques de pantallas
+  quedan renumerados a build34):
+  - **Mascota flotante** (`src/renderer/components/assistant/AssistantWidget.tsx`):
+    FAB fijo `#nova-fab` con avatar `src/renderer/assets/nova-ia.png` (derivado
+    optimizado 560x840 del arte entregado por el usuario), arrastre con pointer
+    events (posición persistida en `nova_assistant_pos` y clamp al viewport),
+    burbuja de saludo inicial "¡Hola! Soy Nova IA 🐾" con `nova_assistant_greeted`
+    (sin repetir tras reload), reintento de settings cada 10s y montaje global en
+    `AppLayout` (se oculta si `ai_enabled=false`).
+  - **Panel de chat** (`AssistantPanel.tsx`): `#nova-panel` con header, mensajes
+    `#nova-messages` (burbujas user a la derecha / assistant a la izquierda),
+    indicador `#nova-thinking`, `#nova-input` + `#nova-send` (deshabilitado con
+    input vacío), chips de sugerencia, `#nova-clear` y `#nova-close`; historial
+    persistido en `ai_messages` y restaurado desde el servidor tras reload.
+  - **Motor híbrido** (`server/assistant/provider.ts|prompt.ts|offline.ts`):
+    proveedor compatible OpenAI (`ai_base_url` + `ai_api_key` + `ai_model` +
+    `ai_temperature` clamp 0-2) y **modo offline local** (saludos, rutas del
+    sistema, reportes/cotizaciones/equipo) cuando no hay clave configurada.
+  - **API** (`server/routes/assistant.ts`): `POST /api/assistant/chat` (message
+    1-2000 chars, historial entrante ≤10, rate limit 20/min → 429, 403 si
+    `ai_enabled=false`, 401 sin `x-user-id`), `GET /history` (últimas 100),
+    `DELETE /history`, `POST /test` (valida URL http(s), responde `{ok:false}`
+    sin 500 si el proveedor no conecta, 403 sin permiso).
+  - **Persistencia**: columnas `ai_enabled, ai_name, ai_provider, ai_base_url,
+    ai_model, ai_api_key, ai_temperature` en `settings` + tabla `ai_messages`
+    (migraciones en `database/schema.ts` y `server/db.ts`); `GET/PUT
+    /api/settings` completos (`ai*Value` validados, params `$30-$36` +
+    `updated_at=$37`, CUSTOM_FIELDS con `aiEnabled/aiName` para bump de
+    `custom_version`); `/api/settings/public` expone **solo** `ai_enabled` y
+    `ai_name` (nunca la clave).
+  - **Ajustes > Sistema**: card `#settings-assistant` con toggle
+    `#settings-ai-enabled` (`role="switch"` + `aria-checked` + `aria-pressed`),
+    campos name/model/base-url/api-key (type=password)/temperature y botón
+    "PROBAR CONEXIÓN" con banner de éxito/error.
+  - **Seguridad build31**: `GET /api/settings` ahora exige
+    `authorizeCustomization` (401 anónimo; antes exponía `smtpPass` y
+    `aiApiKey`), el renderer envía `x-user-id` en Settings y en la exportación
+    de BackupCard; limitaciones conocidas documentadas en
+    `.ai/architecture/ai-assistant-decision.md` (identidad por header sin
+    firma, SSRF residual en `/test`, clave en texto plano, streaming SSE
+    pendiente para build33).
+  - **E2E**: `verify-b31a-api` **25/25** (settings ai_*, chat offline, 401/400,
+    historial, rate limit, test, enable/disable), `verify-b31a-settings`
+    **20/20** (card, toggle aria, edición+guardado, banner de test, persistencia
+    tras reload, 403 vendedor, restauración) y `verify-b31a-ui` **21/21**
+    (fab, saludo, panel, chat E2E, persistencia, drag, ocultar/restaurar
+    asistente) sobre la app instalada con CDP 9222.
+
+### Fixed
+- Burbujas de error del chat, banner de test y `prompt.ts` acoplados a la paleta
+  (`#E6EDF7` sobre fondos oscuros); keyframes de la mascota anidados dentro de
+  `prefers-reduced-motion`; `handleTestAi` con guard ante `settings` null;
+  probe `verify-b25-server` parcheado (+2 checks: header `x-user-id` y 401
+  anónimo); probes `b31a-settings` con muestreo del banner dentro de su ventana
+  de vida (5s) y `b25-server`/`b31a-*` ejecutados con la app en foreground
+  (flags anti background-throttling).
+
 ## [1.0.0-build30] - 2026-10-04
 
 ### Added
 - **Editor de temas personalizados** (segundo build de la saga "todo configurable";
-  sigue build31 = sistema de bloques de pantallas):
+  sigue build34 = sistema de bloques de pantallas, pausado):
   - **Persistencia**: columna `settings.custom_themes TEXT DEFAULT '[]'` (JSON array
     de hasta 30 temas), migración solo en `database/schema.ts` y `server/db.ts`
     (patrón build29, fuera de `src/main/database.ts`). `CustomTheme = {id, name,

@@ -147,7 +147,12 @@ const authorizeCustomization = async (req: any): Promise<Authz> => {
   return { ok: true, actorId, actorName: u.name || '' };
 };
 
-router.get('/', async (_req: any, res: any) => {
+router.get('/', async (req: any, res: any) => {
+  const auth = await authorizeCustomization(req);
+  if (!auth.ok) {
+    const fail = auth as { ok: false; status: number; error: string };
+    return res.status(fail.status).json({ error: fail.error });
+  }
   const db = getPool();
   try {
     const s = await db.query("SELECT * FROM settings WHERE id = 'app'");
@@ -174,7 +179,7 @@ router.get('/public', async (_req: any, res: any) => {
       `SELECT company_name, company_logo, currency, notif_interval, margin_minimum,
               team_default_role, team_default_title, phone, email, payment_alias, payment_titular,
               theme, sidebar_order, sidebar_hidden, login_tagline, sidebar_labels, app_icon,
-              app_title_suffix, custom_version, custom_themes
+              app_title_suffix, custom_version, custom_themes, ai_enabled, ai_name
        FROM settings WHERE id = 'app'`
     );
     const row = s.rows[0] ? toCamel(s.rows[0]) : null;
@@ -226,6 +231,13 @@ router.put('/', async (req: any, res: any) => {
     appIcon,
     appTitleSuffix,
     customThemes,
+    aiEnabled,
+    aiName,
+    aiProvider,
+    aiBaseUrl,
+    aiModel,
+    aiApiKey,
+    aiTemperature,
   } = req.body || {};
   const marginValue = marginMinimum !== undefined ? marginMinimum : margin;
   try {
@@ -352,6 +364,13 @@ router.put('/', async (req: any, res: any) => {
       }
       customThemesValue = JSON.stringify(parsed);
     }
+    const aiEnabledValue = aiEnabled !== undefined && aiEnabled !== null ? !!aiEnabled : null;
+    const aiNameValue = typeof aiName === 'string' && aiName.trim() ? aiName.trim().slice(0, 40) : null;
+    const aiProviderValue = typeof aiProvider === 'string' && aiProvider.trim() ? aiProvider.trim().slice(0, 40) : null;
+    const aiBaseUrlValue = typeof aiBaseUrl === 'string' && /^https?:\/\//.test(aiBaseUrl.trim()) ? aiBaseUrl.trim().slice(0, 200) : null;
+    const aiModelValue = typeof aiModel === 'string' && aiModel.trim() ? aiModel.trim().slice(0, 80) : null;
+    const aiApiKeyValue = typeof aiApiKey === 'string' ? aiApiKey.slice(0, 500) : null;
+    const aiTemperatureValue = aiTemperature !== undefined && aiTemperature !== null && !Number.isNaN(Number(aiTemperature)) ? Math.min(2, Math.max(0, Number(aiTemperature))) : null;
     /* every visual customization bumps the shared version + appends the log so
        all clients can announce "nueva personalización vN" */
     const CUSTOM_FIELDS: [string, any][] = [
@@ -365,6 +384,8 @@ router.put('/', async (req: any, res: any) => {
       ['appIcon', appIcon],
       ['appTitleSuffix', appTitleSuffix],
       ['customThemes', customThemes],
+      ['aiEnabled', aiEnabled],
+      ['aiName', aiName],
     ];
     const touchedFields = CUSTOM_FIELDS.filter(([, v]) => v !== undefined).map(([k]) => k);
     let versionValue: number | null = null;
@@ -414,7 +435,14 @@ router.put('/', async (req: any, res: any) => {
          custom_version = COALESCE($27, custom_version),
          custom_log = COALESCE($28, custom_log),
          custom_themes = COALESCE($29, custom_themes),
-         updated_at = $30
+         ai_enabled = COALESCE($30, ai_enabled),
+         ai_name = COALESCE($31, ai_name),
+         ai_provider = COALESCE($32, ai_provider),
+         ai_base_url = COALESCE($33, ai_base_url),
+         ai_model = COALESCE($34, ai_model),
+         ai_api_key = COALESCE($35, ai_api_key),
+         ai_temperature = COALESCE($36, ai_temperature),
+         updated_at = $37
        WHERE id = 'app'`,
       [
         companyName !== undefined ? companyName : null,
@@ -448,6 +476,13 @@ router.put('/', async (req: any, res: any) => {
         versionValue,
         logValue,
         customThemesValue,
+        aiEnabledValue,
+        aiNameValue,
+        aiProviderValue,
+        aiBaseUrlValue,
+        aiModelValue,
+        aiApiKeyValue,
+        aiTemperatureValue,
         new Date().toISOString(),
       ]
     );
@@ -457,8 +492,9 @@ router.put('/', async (req: any, res: any) => {
            payment_titular, phone, email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from,
            smtp_enabled, currency, notif_interval, login_max_attempts, login_lockout_minutes,
            team_default_role, team_default_title, theme, sidebar_order, sidebar_hidden,
-           login_tagline, sidebar_labels, app_icon, app_title_suffix, custom_version, custom_log, custom_themes, updated_at)
-         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+           login_tagline, sidebar_labels, app_icon, app_title_suffix, custom_version, custom_log, custom_themes,
+           ai_enabled, ai_name, ai_provider, ai_base_url, ai_model, ai_api_key, ai_temperature, updated_at)
+         VALUES ('app', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37)
          ON CONFLICT (id) DO NOTHING`,
         [
           companyName || 'TeknoTech Services',
@@ -490,6 +526,13 @@ router.put('/', async (req: any, res: any) => {
           versionValue ?? 1,
           logValue || '[]',
           customThemesValue || '[]',
+          aiEnabledValue ?? true,
+          aiNameValue || 'Nova IA',
+          aiProviderValue || 'openai',
+          aiBaseUrlValue || 'https://api.openai.com/v1',
+          aiModelValue || 'gpt-4o-mini',
+          aiApiKeyValue || '',
+          aiTemperatureValue ?? 0.7,
           new Date().toISOString(),
         ]
       );

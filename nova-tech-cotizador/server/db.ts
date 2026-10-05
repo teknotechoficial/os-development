@@ -74,6 +74,13 @@ export async function initDatabase(): Promise<void> {
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_version INTEGER DEFAULT 1`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_log TEXT DEFAULT '[]'`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS custom_themes TEXT DEFAULT '[]'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT true`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_name TEXT DEFAULT 'Nova IA'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'openai'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_base_url TEXT DEFAULT 'https://api.openai.com/v1'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_model TEXT DEFAULT 'gpt-4o-mini'`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_api_key TEXT DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS ai_temperature REAL DEFAULT 0.7`,
   `CREATE TABLE IF NOT EXISTS login_attempts (
       id TEXT PRIMARY KEY, identifier TEXT NOT NULL, success BOOLEAN NOT NULL,
       ip TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -85,6 +92,8 @@ export async function initDatabase(): Promise<void> {
       token TEXT NOT NULL, expires_at TIMESTAMP NOT NULL,
       used BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS ai_messages (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), role TEXT NOT NULL CHECK (role IN ('user','assistant')), content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE INDEX IF NOT EXISTS idx_ai_messages_user_created ON ai_messages (user_id, created_at)`,
     `CREATE TABLE IF NOT EXISTS services (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '',
       category TEXT NOT NULL, base_price REAL NOT NULL DEFAULT 0,

@@ -982,6 +982,53 @@ pm run build NO reempaqueta el asar** - despues de cambios hay que correr
   settings.ts server corre con tsx -> reiniciar `npm run server`; despues
   electron-builder --dir + robocopy.
 
-### Pendiente build31 (ultimo del plan aprobado)
-- build31: sistema de bloques de pantallas (mover bloques, editar textos/funciones/
-  animaciones - Dashboard 5 bloques, Reports 7 secciones, etc.).
+### Renumeración del plan (build34)
+- El "sistema de bloques de pantallas" (Dashboard 5 bloques L224/241/272/367/368/447,
+  Reports 7 secciones L187/209/213/223/235/312/356, screen_blocks $31) quedó PAUSADO
+  a pedido del usuario (specs completas guardadas en memori, categoría historial) y
+  ahora corresponde a **build34**. build31/32/33 = saga del asistente IA.
+
+### Build31 - Asistente IA "Nova IA" (núcleo) - CERRADO
+- **Motor**: híbrido OpenAI-compatible (ai_base_url/ai_api_key/ai_model/ai_temperature
+  clamp 0-2) + modo offline local sin clave; nombre "Nova IA"; avatar
+  `src/renderer/assets/nova-ia.png` (560x840, 564,691 B) derivado del PNG del usuario.
+- **UI**: `AssistantWidget.tsx` (#nova-fab drag con nova_assistant_pos + burbuja
+  saludo nova_assistant_greeted + retry 10s), `AssistantPanel.tsx` (#nova-panel,
+  #nova-messages, #nova-thinking, #nova-input/#nova-send, #nova-clear/#nova-close,
+  chips), montaje en AppLayout L722, store `src/renderer/store/assistant.ts`.
+- **Server**: `server/assistant/{provider,prompt,offline}.ts` + `server/routes/assistant.ts`
+  (POST chat con rate limit >=20/min y cap 2000 chars, GET/DELETE history, POST test);
+  mount en index.ts L35. Settings: 7 columnas ai_* (params $30-$36, updated_at $37),
+  CUSTOM_FIELDS aiEnabled/aiName, public solo ai_enabled/ai_name, GET /api/settings
+  ahora con authorizeCustomization (401 anónimo), renderer manda x-user-id (Settings
+  fetch L712-725, BackupCard export).
+- **E2E final**: b31a-api **25/25**, b31a-settings **20/20**, b31a-ui **21/21** +
+  regresión total **388 verdes** (b30 39, b29 42, b28 27, b27 38, settings-new 24,
+  b13 78, b25 40, b25-server 34, b31a 66) + c/d/b2/v5 exit0. tsc R=0 M=0, vite exit0,
+  electron-builder exit0 + robocopy exit1 (ok).
+- **Limitaciones documentadas** (.ai/architecture/ai-assistant-decision.md): identidad
+  por header x-user-id sin firma, SSRF residual en /assistant/test, clave en texto
+  plano, SSE streaming pendiente (build33), tools/acciones pendientes (build32).
+
+### Gotchas build31 (aplican a todos los probes)
+- **backgroundThrottling**: si la app queda oculta (`visibilityState=hidden`), Chromium
+  pausa renders/timers -> `Page.captureScreenshot` timeout, datos "vacíos" y falsos
+  ROJOS (b13 73/78 -> 78/78 con app en foreground). Lanzar con
+  `--disable-background-timer-throttling --disable-renderer-backgrounding
+  --disable-backgrounding-occluded-windows` y mantener la ventana visible.
+- **Sesión CDP residual**: una interrupción del tool deja la app medio colgada y los
+  probes siguientes fallan en Runtime/Page.enable -> matar procesos y relanzar app
+  fresca; verificar con `cdp-latency.js` (eval <100ms = sano, >2s = degradado).
+- **Probes en Latin-1**: verify-b31a-settings.js y otros están en cp1252 (0xD3 = Ó);
+  el edit tool falla con acentos -> parchear con node `readFileSync/writeFileSync
+  latin1`. `node --check` siempre después.
+- **Toggle**: `role="switch"` + `aria-checked` agregados al Toggle de Settings (los
+  probes leen aria-checked; aria-pressed se mantuvo por compatibilidad).
+- **Banners efímeros**: los probes deben muestrear el banner dentro de su ventana de
+  vida (success 3-4s, error 5s); poll en vez de wait único.
+- `window.confirm` existe en AssistantPanel/Services/TeamManager: los probes deben
+  auto-aceptar `Page.javascriptDialogOpening` (b29 lo hace en L34); un confirm sin
+  responder bloquea el renderer (CPU 0, evaluate timeout).
+- **FALSO ALARM**: `Page.handleJavaScriptDialog` responde `{error:'No dialog is
+  showing'}` DENTRO de `result` (no throw) - revisar `r.error` antes de concluir
+  que hay diálogo abierto.

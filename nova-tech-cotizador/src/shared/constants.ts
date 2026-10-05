@@ -66,6 +66,15 @@ export const ROLE_LABELS: Record<string, string> = {
   desarrollador: 'Desarrollador',
 };
 
+/* Nova IA — AI assistant defaults (overridable per-installation via settings.ai_*) */
+export const ASSISTANT_DEFAULTS = {
+  name: 'Nova IA',
+  provider: 'openai',
+  baseUrl: 'https://api.openai.com/v1',
+  model: 'gpt-4o-mini',
+  temperature: 0.7,
+} as const;
+
 export const STATUS_COLORS: Record<string, string> = {
   borrador: 'bg-gray-200 text-gray-800',
   enviada: 'bg-blue-100 text-blue-800',
